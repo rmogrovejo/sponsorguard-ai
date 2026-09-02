@@ -1,85 +1,133 @@
 const workflowSteps = [
-  "Sponsor brief",
-  "Creator transcript",
-  "Compliance results",
+  {
+    number: "01",
+    type: "Campaign input",
+    title: "Sponsor brief",
+    description: "Campaign rules, required claims, and prohibited language.",
+    state: "Awaiting brief",
+  },
+  {
+    number: "02",
+    type: "Creator source",
+    title: "Creator transcript",
+    description: "Timestamped spoken content prepared for line-by-line review.",
+    state: "Awaiting transcript",
+  },
+  {
+    number: "03",
+    type: "Review output",
+    title: "Compliance results",
+    description: "Clear findings paired with precise, reviewable evidence.",
+    state: "Not evaluated",
+  },
+];
+
+const resultStates = [
+  { label: "Pass", className: "status-label--pass" },
+  { label: "Warning", className: "status-label--warning" },
+  { label: "Fail", className: "status-label--fail" },
 ];
 
 function App() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div
-              aria-hidden="true"
-              className="grid size-10 place-items-center rounded-xl bg-emerald-400 font-black text-slate-950 shadow-lg shadow-emerald-400/15"
-            >
+    <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
+
+      <header className="masthead">
+        <div className="page-frame masthead__inner">
+          <div className="wordmark" aria-label="SponsorGuard AI">
+            <span className="wordmark__mark" aria-hidden="true">
               SG
-            </div>
-            <div>
-              <p className="font-semibold tracking-tight">SponsorGuard AI</p>
-              <p className="text-xs text-slate-400">Campaign quality assurance</p>
-            </div>
+            </span>
+            <span className="wordmark__name">
+              SponsorGuard <span>AI</span>
+            </span>
           </div>
-          <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-medium text-emerald-300">
-            Initial prototype
-          </span>
+
+          <div className="masthead__meta" aria-label="Application status">
+            <span>Editorial preflight</span>
+            <span className="masthead__divider" aria-hidden="true" />
+            <span className="mono-label">BUILD 0.1</span>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-24">
-        <section className="max-w-3xl">
-          <p className="mb-5 text-sm font-semibold uppercase tracking-[0.2em] text-emerald-300">
-            Pre-publish confidence
-          </p>
-          <h1 className="text-5xl font-semibold tracking-tight text-balance sm:text-6xl">
-            SponsorGuard AI
-          </h1>
-          <p className="mt-6 text-xl leading-8 text-slate-300 sm:text-2xl">
-            Automated QA for creator sponsorships
-          </p>
-          <p className="mt-4 max-w-2xl leading-7 text-slate-400">
-            Turn campaign requirements and creator transcripts into clear,
-            evidence-backed compliance results before content goes live.
-          </p>
-        </section>
+      <main id="main-content" className="page-frame">
+        <section className="introduction" aria-labelledby="page-title">
+          <div className="section-index">
+            <span>Pre-publish quality control</span>
+            <span className="mono-label">PROTOCOL / 001</span>
+          </div>
 
-        <section
-          aria-labelledby="workflow-heading"
-          className="mt-14 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] shadow-2xl shadow-black/20"
-        >
-          <div className="border-b border-white/10 px-6 py-5 sm:px-8">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 id="workflow-heading" className="text-lg font-semibold">
-                  Campaign workflow
-                </h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  The workspace for a future sponsorship review.
-                </p>
-              </div>
-              <span className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                Coming next
-              </span>
+          <div className="introduction__grid">
+            <div>
+              <h1 id="page-title">SponsorGuard AI</h1>
+              <p className="introduction__lede">
+                Automated QA for creator sponsorships
+              </p>
             </div>
-          </div>
 
-          <div className="grid gap-px bg-white/10 md:grid-cols-3">
-            {workflowSteps.map((step, index) => (
-              <div key={step} className="bg-slate-950/90 p-6 sm:p-8">
-                <span className="text-xs font-semibold text-emerald-300">
-                  0{index + 1}
-                </span>
-                <h3 className="mt-5 font-medium">{step}</h3>
-                <div className="mt-8 space-y-3" aria-hidden="true">
-                  <div className="h-2.5 w-full rounded-full bg-white/8" />
-                  <div className="h-2.5 w-4/5 rounded-full bg-white/8" />
-                  <div className="h-2.5 w-2/3 rounded-full bg-white/8" />
-                </div>
-              </div>
-            ))}
+            <p className="introduction__summary">
+              A precise review layer for campaign requirements and creator
+              content—designed to surface clear findings before publication.
+            </p>
           </div>
         </section>
+
+        <section className="workflow" aria-labelledby="workflow-heading">
+          <header className="workflow__header">
+            <div>
+              <p className="workflow__kicker">Review docket</p>
+              <h2 id="workflow-heading">Campaign workflow</h2>
+            </div>
+            <div className="workflow__case-meta">
+              <span>Future workspace preview</span>
+              <span className="mono-label">CASE / UNASSIGNED</span>
+            </div>
+          </header>
+
+          <ol className="workflow__steps">
+            {workflowSteps.map((step) => (
+              <li key={step.number} className="workflow-step">
+                <span className="workflow-step__number mono-label">
+                  {step.number}
+                </span>
+                <div className="workflow-step__copy">
+                  <p className="workflow-step__type mono-label">{step.type}</p>
+                  <h3>{step.title}</h3>
+                  <p>{step.description}</p>
+                </div>
+                <span className="queue-label">{step.state}</span>
+              </li>
+            ))}
+          </ol>
+
+          <footer className="workflow__footer">
+            <div>
+              <p className="workflow__kicker">Result language</p>
+              <p className="workflow__footer-note">
+                Status color is reserved for evaluated compliance findings.
+              </p>
+            </div>
+            <div className="result-key" aria-label="Future compliance statuses">
+              {resultStates.map((state) => (
+                <span
+                  key={state.label}
+                  className={`status-label ${state.className}`}
+                >
+                  {state.label}
+                </span>
+              ))}
+            </div>
+          </footer>
+        </section>
+
+        <footer className="page-note">
+          <span>Campaign compliance review system</span>
+          <span className="mono-label">NO CAMPAIGN LOADED</span>
+        </footer>
       </main>
     </div>
   );
