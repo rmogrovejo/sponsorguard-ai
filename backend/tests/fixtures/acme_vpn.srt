@@ -1,0 +1,7 @@
+1
+00:00:38,000 --> 00:00:42,000
+Today's video is sponsored by AcmeVPN.
+
+2
+00:00:52,000 --> 00:00:57,000
+You can save twenty-five percent using my link.

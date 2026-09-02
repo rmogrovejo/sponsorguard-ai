@@ -1,1 +1,0 @@
-"""SponsorGuard business services."""
