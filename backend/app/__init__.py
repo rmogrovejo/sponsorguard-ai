@@ -1,0 +1,1 @@
+"""SponsorGuard API package."""
