@@ -1,0 +1,42 @@
+:root {
+  /* Editorial Preflight core palette */
+  --color-paper: #f4f1ea;
+  --color-paper-deep: #ebe6dc;
+  --color-paper-light: #faf8f3;
+  --color-ink: #161616;
+  --color-graphite: #343330;
+  --color-border: #d8d3c9;
+  --color-border-strong: #aaa49a;
+  --color-muted: #77736b;
+  --color-muted-strong: #65615a;
+  --color-signal: #c65a32;
+  --color-signal-ink: #a94425;
+
+  /* Semantic status palette */
+  --color-pass: #596249;
+  --color-pass-surface: #e4e6dc;
+  --color-warning: #7c5d22;
+  --color-warning-surface: #eee5d1;
+  --color-fail: #8d4135;
+  --color-fail-surface: #eee0dc;
+
+  /* Typography */
+  --font-editorial: Georgia, "Times New Roman", serif;
+  --font-interface: Aptos, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  /* Structure and motion */
+  --page-width: 82rem;
+  --page-gutter: clamp(1.125rem, 4vw, 3rem);
+  --rule: 1px solid var(--color-border);
+  --rule-strong: 1px solid var(--color-border-strong);
+  --radius-precise: 2px;
+  --transition-fast: 150ms ease;
+
+  font-family: var(--font-interface);
+  color: var(--color-ink);
+  background: var(--color-paper);
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
