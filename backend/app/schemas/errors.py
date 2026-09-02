@@ -1,0 +1,27 @@
+from enum import StrEnum
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class APIErrorCode(StrEnum):
+    REQUEST_VALIDATION_ERROR = "REQUEST_VALIDATION_ERROR"
+    INVALID_TRANSCRIPT = "INVALID_TRANSCRIPT"
+    TRANSCRIPT_TOO_LARGE = "TRANSCRIPT_TOO_LARGE"
+    INVALID_COMPLIANCE_INPUT = "INVALID_COMPLIANCE_INPUT"
+    UNSUPPORTED_TRANSCRIPT_FORMAT = "UNSUPPORTED_TRANSCRIPT_FORMAT"
+    INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR"
+
+
+class APIError(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    code: APIErrorCode
+    message: str = Field(min_length=1)
+    details: dict[str, Any] | None = None
+
+
+class ErrorResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    error: APIError
