@@ -15,3 +15,13 @@ The parser applies these defensive rules:
 - malformed input raises a `TranscriptParseError` subtype with a stable `SRTErrorCode` and block/line context when available.
 
 Byte decoding is intentionally outside the parser boundary. A file-upload boundary should decode bytes explicitly and convert decoding failures into an API error before calling the parser.
+
+## Deterministic compliance policy
+
+The compliance engine accepts validated requirement and transcript models and remains independent from FastAPI. Requirement results are returned in requirement order; transcript matching follows the supplied segment order and never sorts by cue index.
+
+Matching uses Unicode NFKC normalization, Unicode whitespace normalization, and case folding. Targets are escaped and matched literally between Unicode word-character boundaries. This allows punctuation around a phrase or token while preventing matches inside larger alphanumeric or underscore-delimited tokens. Hyphens are treated as punctuation unless they are part of the required value itself. There is no fuzzy or semantic equivalence matching.
+
+`required_mention_before` passes when the first matching segment starts at or before the deadline (`timestamp_seconds <= before_seconds`). A later match fails with evidence; a missing match fails without fabricated evidence.
+
+Scores are calculated as `((PASS + WARNING × 0.5) / total) × 100` and rounded to two decimal places using round-half-up. Invalid input collections raise `ComplianceInputError`; valid inputs that do not meet requirements produce normal `FAIL` results.

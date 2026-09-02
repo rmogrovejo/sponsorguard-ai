@@ -1,10 +1,12 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.domain.text import normalize_unicode_whitespace
+
 
 def normalize_transcript_text(value: str) -> str:
     """Collapse Unicode whitespace without altering non-whitespace content."""
 
-    return " ".join(value.split())
+    return normalize_unicode_whitespace(value)
 
 
 class TranscriptSegment(BaseModel):
