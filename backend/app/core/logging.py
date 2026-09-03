@@ -15,6 +15,10 @@ class JsonLogFormatter(logging.Formatter):
         "status_code",
         "duration_ms",
         "error_type",
+        "error_code",
+        "provider",
+        "model",
+        "requirement_count",
     )
 
     def format(self, record: logging.LogRecord) -> str:

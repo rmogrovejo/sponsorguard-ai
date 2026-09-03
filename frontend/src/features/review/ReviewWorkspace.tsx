@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import type { RequirementDraft } from "../../types/compliance";
+import { BriefSection } from "../briefs/BriefSection";
+import { useBriefExtraction } from "../briefs/useBriefExtraction";
 import { ComplianceReport } from "../compliance/ComplianceReport";
-import { createRequirementDraft } from "../requirements/requirementModel";
+import {
+  createExtractedRequirementDraft,
+  createRequirementDraft,
+} from "../requirements/requirementModel";
 import { RequirementsSection } from "../requirements/RequirementsSection";
 import { TranscriptSection } from "../transcript/TranscriptSection";
 import { useComplianceAnalysis } from "./useComplianceAnalysis";
@@ -17,6 +22,7 @@ const PHASE_LABELS = {
 
 export function ReviewWorkspace() {
   const [campaignName, setCampaignName] = useState("");
+  const [sponsorBrief, setSponsorBrief] = useState("");
   const [requirements, setRequirements] = useState<RequirementDraft[]>(() => [
     createRequirementDraft(),
   ]);
@@ -31,6 +37,7 @@ export function ReviewWorkspace() {
     analyze,
     markDirty,
   } = useComplianceAnalysis();
+  const briefExtraction = useBriefExtraction();
   const requestActive = phase === "validating" || phase === "analyzing";
 
   useEffect(() => {
@@ -46,6 +53,20 @@ export function ReviewWorkspace() {
 
   const updateCampaignName = (value: string) => {
     setCampaignName(value);
+    markDirty();
+  };
+
+  const updateSponsorBrief = (value: string) => {
+    setSponsorBrief(value);
+    briefExtraction.reset();
+  };
+
+  const appendExtractedRequirements = () => {
+    const extractedDrafts = briefExtraction.requirements.map(
+      createExtractedRequirementDraft,
+    );
+    setRequirements((current) => [...current, ...extractedDrafts]);
+    briefExtraction.reset();
     markDirty();
   };
 
@@ -137,6 +158,20 @@ export function ReviewWorkspace() {
           </div>
         </section>
 
+        <BriefSection
+          brief={sponsorBrief}
+          disabled={requestActive}
+          phase={briefExtraction.phase}
+          error={briefExtraction.error}
+          requirements={briefExtraction.requirements}
+          onBriefChange={updateSponsorBrief}
+          onExtract={() => void briefExtraction.extract(sponsorBrief)}
+          onRetry={() => void briefExtraction.extract(sponsorBrief)}
+          onAppend={appendExtractedRequirements}
+          onDiscard={briefExtraction.reset}
+          onRemoveCandidate={briefExtraction.removeCandidate}
+        />
+
         <RequirementsSection
           requirements={requirements}
           disabled={requestActive}
@@ -181,7 +216,7 @@ export function ReviewWorkspace() {
 
         <footer className="analysis-bar">
           <div>
-            <p className="mono-label">04 / ANALYZE</p>
+            <p className="mono-label">05 / ANALYZE</p>
             <p>
               SponsorGuard will evaluate {requirements.length} configured
               {requirements.length === 1 ? " requirement" : " requirements"}.

@@ -1,4 +1,5 @@
 import type { RequirementDraft, RequirementType } from "../../types/compliance";
+import type { ExtractedRequirement } from "../../types/briefs";
 
 export const REQUIREMENT_OPTIONS: ReadonlyArray<{
   value: RequirementType;
@@ -55,4 +56,31 @@ export function getTargetLabel(type: RequirementType): string {
     REQUIREMENT_OPTIONS.find((option) => option.value === type)?.targetLabel ??
     "Target value"
   );
+}
+
+export function getRequirementLabel(type: RequirementType): string {
+  return (
+    REQUIREMENT_OPTIONS.find((option) => option.value === type)?.label ??
+    "Sponsorship requirement"
+  );
+}
+
+export function createExtractedRequirementDraft(
+  requirement: ExtractedRequirement,
+): RequirementDraft {
+  return {
+    id: requirement.id,
+    type: requirement.type,
+    description: requirement.description,
+    value: requirement.value,
+    beforeSeconds:
+      requirement.type === "required_mention_before" &&
+      requirement.before_seconds !== null
+        ? String(requirement.before_seconds)
+        : "",
+    provenance: {
+      kind: "sponsor_brief",
+      sourceText: requirement.source_text,
+    },
+  };
 }

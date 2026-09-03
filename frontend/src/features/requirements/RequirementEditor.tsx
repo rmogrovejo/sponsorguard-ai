@@ -168,6 +168,13 @@ export function RequirementEditor({
           </div>
         )}
       </div>
+
+      {requirement.provenance && (
+        <details className="requirement-source">
+          <summary>Source from sponsor brief</summary>
+          <blockquote>“{requirement.provenance.sourceText}”</blockquote>
+        </details>
+      )}
     </article>
   );
 }

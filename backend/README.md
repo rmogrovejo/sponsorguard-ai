@@ -36,6 +36,49 @@ python -m uvicorn app.main:app --reload
 
 OpenAPI documentation is available at `http://127.0.0.1:8000/docs`. The health endpoint remains available at `GET /health`.
 
+### Extract sponsor-brief requirements
+
+`POST /api/v1/briefs/extract` sends only the sponsor brief to the configured backend provider. The provider returns strict structured data, which SponsorGuard validates and maps to the existing deterministic requirement domain. SponsorGuard—not the model—generates requirement IDs. The endpoint never receives a transcript and never makes a compliance decision.
+
+Request:
+
+```json
+{
+  "brief": "Mention AcmeVPN in the first 60 seconds, use code CREATOR25, and do not claim guaranteed anonymity."
+}
+```
+
+Successful response:
+
+```json
+{
+  "requirements": [
+    {
+      "id": "req_ai_0123456789abcdef0123456789abcdef",
+      "type": "required_mention_before",
+      "description": "Mention AcmeVPN in the first minute",
+      "value": "AcmeVPN",
+      "before_seconds": 60.0,
+      "source_text": "Mention AcmeVPN in the first 60 seconds"
+    }
+  ],
+  "meta": {
+    "provider": "gemini",
+    "model": "gemini-3.7-flash",
+    "prompt_version": "1.0",
+    "requirement_count": 1
+  }
+}
+```
+
+Only `required_mention`, `required_exact_token`, `forbidden_phrase`, and `required_mention_before` are accepted. Provider output is untrusted and must pass Pydantic validation. Provenance is retained in `source_text`; self-reported confidence is intentionally omitted because it is not a validation signal.
+
+Gemini is the default provider for the hackathon. Its adapter uses the official `google-genai` Python SDK, the Interactions API, and the JSON Schema derived from `BriefExtractionOutput`. The existing OpenAI adapter remains available. Both implement the same `LLMRequirementExtractor` protocol and reuse the same versioned extraction prompt; route handlers and business services contain no provider-specific branching.
+
+The React workflow stages extracted rules for explicit human review. Reviewers can exclude proposed rules, append the rest to the existing checklist, and then edit or remove them through the same editor used for manual rules. Existing rules are never replaced by extraction.
+
+If provider configuration or the provider itself is unavailable, the endpoint returns the normal safe error envelope. It never manufactures fallback rules. The brief and manual checklist remain available in React, so deterministic manual review remains usable.
+
 ### Analyze compliance
 
 `POST /api/v1/compliance/analyze`
@@ -106,7 +149,11 @@ Every handled response includes `X-Request-ID`. Caller values containing 1–128
 - `200`: analysis completed, including legitimate compliance failures;
 - `400`: structurally valid but semantically invalid input, unsupported transcript format, or malformed SRT;
 - `413`: transcript or declared request body exceeds the configured limit;
+- `429`: the extraction provider is temporarily rate limited;
 - `422`: JSON or Pydantic request-contract validation failed;
+- `502`: the extraction provider returned malformed or schema-invalid structured output;
+- `503`: provider configuration, authentication, or availability prevents extraction;
+- `504`: the extraction provider timed out;
 - `500`: unexpected internal failure, returned without exception details.
 
 The API logs method, path, status, duration, and request ID as JSON. Transcript bodies are not logged.
@@ -120,3 +167,32 @@ http://localhost:5173,http://127.0.0.1:5173
 ```
 
 Wildcard origins are rejected. `SPONSORGUARD_MAX_REQUEST_BODY_BYTES` optionally changes the default 2,100,000-byte declared request-body limit.
+
+Copy `backend/.env.example` to the ignored local file `backend/.env`, set its backend-only values, and load it explicitly when starting Uvicorn:
+
+```bash
+python -m uvicorn app.main:app --reload --env-file .env
+```
+
+The application reads process environment variables and never sends provider credentials to React. `SPONSORGUARD_LLM_PROVIDER` selects the isolated adapter, and `SPONSORGUARD_LLM_MODEL` controls its exact model. When Gemini is selected and the model variable is omitted, the development fallback is `gemini-3.7-flash`. When OpenAI is explicitly selected without a model override, its fallback remains `gpt-5.6-luna`.
+
+For Gemini development:
+
+```dotenv
+SPONSORGUARD_LLM_PROVIDER=gemini
+SPONSORGUARD_LLM_MODEL=gemini-3.7-flash
+SPONSORGUARD_LLM_TIMEOUT_SECONDS=20
+GEMINI_API_KEY=your-gemini-api-key-here
+```
+
+For the retained OpenAI adapter, set `SPONSORGUARD_LLM_PROVIDER=openai`, an appropriate `SPONSORGUARD_LLM_MODEL`, and `OPENAI_API_KEY` instead. Never place either key in frontend configuration, logs, API responses, or source control. The local `.env` file is ignored and must not be committed.
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | For Gemini extraction | Backend-only Gemini Developer API credential. |
+| `OPENAI_API_KEY` | For OpenAI extraction | Backend-only OpenAI credential. |
+| `SPONSORGUARD_LLM_PROVIDER` | No | `gemini` (default) or `openai`; unsupported names produce a controlled configuration error. |
+| `SPONSORGUARD_LLM_MODEL` | No | Model for the selected provider; Gemini defaults to `gemini-3.7-flash`. |
+| `SPONSORGUARD_LLM_TIMEOUT_SECONDS` | No | Positive provider timeout; defaults to `20`. |
+
+The versioned extraction prompt lives in `app/integrations/llm/prompts.py`. Provider SDK usage is isolated in `app/integrations/llm/gemini_provider.py` and `app/integrations/llm/openai_provider.py`.

@@ -62,8 +62,13 @@ class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
             except ValueError:
                 body_size = 0
             if body_size > self.max_body_bytes:
+                is_brief_extraction = request.url.path == "/api/v1/briefs/extract"
                 return build_error_response(
-                    code=APIErrorCode.TRANSCRIPT_TOO_LARGE,
+                    code=(
+                        APIErrorCode.BRIEF_TOO_LARGE
+                        if is_brief_extraction
+                        else APIErrorCode.TRANSCRIPT_TOO_LARGE
+                    ),
                     message="The request body exceeds the allowed size.",
                     status_code=413,
                     details={"max_body_bytes": self.max_body_bytes},

@@ -72,7 +72,7 @@ export function TranscriptSection({
   return (
     <section className="review-section" aria-labelledby="transcript-heading">
       <header className="review-section__header review-section__header--compact">
-        <div className="section-number mono-label">03 / TRANSCRIPT</div>
+        <div className="section-number mono-label">04 / TRANSCRIPT</div>
         <div>
           <h2 id="transcript-heading">Creator transcript</h2>
           <p>Paste SRT text directly or load a UTF-8 .srt file from this device.</p>

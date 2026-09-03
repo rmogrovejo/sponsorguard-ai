@@ -10,6 +10,10 @@ export interface RequirementDraft {
   description: string;
   value: string;
   beforeSeconds: string;
+  provenance?: {
+    kind: "sponsor_brief";
+    sourceText: string;
+  };
 }
 
 interface RequirementPayloadBase {

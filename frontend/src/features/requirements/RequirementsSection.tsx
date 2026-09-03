@@ -22,7 +22,7 @@ export function RequirementsSection({
   return (
     <section className="review-section" aria-labelledby="requirements-heading">
       <header className="review-section__header">
-        <div className="section-number mono-label">02 / REQUIREMENTS</div>
+        <div className="section-number mono-label">03 / REQUIREMENTS</div>
         <div>
           <h2 id="requirements-heading">Sponsorship requirements</h2>
           <p>Define the deterministic checks this creator submission must pass.</p>

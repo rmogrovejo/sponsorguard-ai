@@ -7,9 +7,14 @@ from app.api.middleware import RequestBodyLimitMiddleware, RequestContextMiddlew
 from app.api.v1.router import router as v1_router
 from app.core.config import Settings
 from app.core.logging import configure_logging
+from app.integrations.llm.base import LLMRequirementExtractor
+from app.integrations.llm.factory import create_requirement_extractor
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    requirement_extractor: LLMRequirementExtractor | None = None,
+) -> FastAPI:
     resolved_settings = settings or Settings.from_environment()
     configure_logging()
 
@@ -17,6 +22,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         title="SponsorGuard API",
         description="API for automated creator sponsorship QA.",
         version="0.1.0",
+    )
+    application.state.requirement_extractor = (
+        requirement_extractor or create_requirement_extractor(resolved_settings)
     )
     register_exception_handlers(application)
     application.include_router(health_router)

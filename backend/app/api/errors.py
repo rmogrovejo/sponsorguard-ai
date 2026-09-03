@@ -5,9 +5,20 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.integrations.llm.exceptions import (
+    LLMAuthenticationError,
+    LLMConfigurationError,
+    LLMMalformedOutputError,
+    LLMOutputValidationError,
+    LLMProviderError,
+    LLMProviderTimeoutError,
+    LLMProviderUnavailableError,
+    LLMRateLimitError,
+)
 from app.parsers.exceptions import TranscriptParseError, TranscriptTooLargeError
 from app.parsers.srt import MAX_SRT_CHARACTERS
 from app.schemas.errors import APIError, APIErrorCode, ErrorResponse
+from app.services.brief_extraction import MAX_BRIEF_CHARACTERS
 from app.services.compliance_engine import ComplianceInputError
 
 
@@ -19,6 +30,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(TranscriptTooLargeError, transcript_too_large_handler)
     app.add_exception_handler(TranscriptParseError, invalid_transcript_handler)
     app.add_exception_handler(ComplianceInputError, compliance_input_handler)
+    app.add_exception_handler(LLMProviderError, llm_provider_error_handler)
     app.add_exception_handler(Exception, internal_error_handler)
 
 
@@ -28,6 +40,13 @@ async def request_validation_handler(
 ) -> JSONResponse:
     assert isinstance(error, RequestValidationError)
     validation_errors = error.errors()
+    if _contains_oversized_brief(validation_errors):
+        return build_error_response(
+            code=APIErrorCode.BRIEF_TOO_LARGE,
+            message="The sponsor brief exceeds the allowed size.",
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            details={"max_characters": MAX_BRIEF_CHARACTERS},
+        )
     if _contains_unsupported_transcript_format(validation_errors):
         return build_error_response(
             code=APIErrorCode.UNSUPPORTED_TRANSCRIPT_FORMAT,
@@ -96,6 +115,30 @@ async def compliance_input_handler(
     )
 
 
+async def llm_provider_error_handler(
+    request: Request,
+    error: Exception,
+) -> JSONResponse:
+    assert isinstance(error, LLMProviderError)
+    code, message, status_code = _llm_error_response_policy(error)
+    logger.warning(
+        "Controlled requirement extraction failure",
+        extra={
+            "event": "brief_extraction_failed",
+            "request_id": getattr(request.state, "request_id", None),
+            "method": request.method,
+            "path": request.url.path,
+            "error_code": error.code.value,
+        },
+    )
+    return build_error_response(
+        code=code,
+        message=message,
+        status_code=status_code,
+        details={"reason_code": error.code.value},
+    )
+
+
 async def internal_error_handler(
     request: Request,
     error: Exception,
@@ -150,3 +193,57 @@ def _contains_unsupported_transcript_format(
         ):
             return True
     return False
+
+
+def _contains_oversized_brief(errors: list[dict[str, Any]]) -> bool:
+    return any(
+        tuple(item.get("loc", ())) == ("body", "brief")
+        and item.get("type") == "string_too_long"
+        for item in errors
+    )
+
+
+def _llm_error_response_policy(
+    error: LLMProviderError,
+) -> tuple[APIErrorCode, str, int]:
+    if isinstance(error, LLMProviderTimeoutError):
+        return (
+            APIErrorCode.LLM_PROVIDER_TIMEOUT,
+            "Requirement extraction timed out.",
+            status.HTTP_504_GATEWAY_TIMEOUT,
+        )
+    if isinstance(error, LLMRateLimitError):
+        return (
+            APIErrorCode.LLM_PROVIDER_RATE_LIMITED,
+            "Requirement extraction is temporarily rate limited.",
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+    if isinstance(error, LLMAuthenticationError):
+        return (
+            APIErrorCode.LLM_PROVIDER_AUTHENTICATION_ERROR,
+            "Requirement extraction is not available because provider authentication failed.",
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    if isinstance(error, LLMConfigurationError):
+        return (
+            APIErrorCode.LLM_PROVIDER_CONFIGURATION_ERROR,
+            "Requirement extraction is not configured on this server.",
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    if isinstance(error, (LLMMalformedOutputError, LLMOutputValidationError)):
+        return (
+            APIErrorCode.LLM_PROVIDER_OUTPUT_INVALID,
+            "Requirement extraction returned an invalid structured result.",
+            status.HTTP_502_BAD_GATEWAY,
+        )
+    if isinstance(error, LLMProviderUnavailableError):
+        return (
+            APIErrorCode.LLM_PROVIDER_UNAVAILABLE,
+            "Requirement extraction is temporarily unavailable.",
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    return (
+        APIErrorCode.LLM_PROVIDER_UNAVAILABLE,
+        "Requirement extraction is temporarily unavailable.",
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
