@@ -112,6 +112,12 @@ def test_valid_gemini_output_uses_interactions_structured_schema() -> None:
     assert "required_url" in response_format["schema"]["$defs"]["RequirementType"][
         "enum"
     ]
+    assert "required_talking_point" in response_format["schema"]["$defs"][
+        "RequirementType"
+    ]["enum"]
+    assert "forbidden_claim" in response_format["schema"]["$defs"][
+        "RequirementType"
+    ]["enum"]
     assert "Never invent a URL" in BRIEF_EXTRACTION_INSTRUCTIONS
     assert "never classify" in BRIEF_EXTRACTION_INSTRUCTIONS
     domain_schema = BriefExtractionOutput.model_json_schema()
@@ -328,7 +334,7 @@ def test_existing_extraction_endpoint_accepts_gemini_provider_boundary() -> None
     assert body["meta"] == {
         "provider": "gemini",
         "model": "gemini-3.7-flash",
-        "prompt_version": "1.1",
+        "prompt_version": "2.0",
         "requirement_count": 1,
     }
 

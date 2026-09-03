@@ -116,6 +116,10 @@ export function RequirementEditor({
                 ? "e.g. CREATOR25"
                 : requirement.type === "required_url"
                   ? "e.g. acmevpn.com/creator"
+                  : requirement.type === "required_talking_point"
+                    ? "e.g. The product reduces editing time"
+                    : requirement.type === "forbidden_claim"
+                      ? "e.g. The VPN makes users completely untraceable"
                   : "e.g. AcmeVPN"
             }
             inputMode={requirement.type === "required_url" ? "url" : "text"}

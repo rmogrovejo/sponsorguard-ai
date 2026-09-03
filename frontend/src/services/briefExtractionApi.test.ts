@@ -44,6 +44,35 @@ describe("brief extraction API client", () => {
     });
   });
 
+  it("accepts semantic requirement types from the validated extraction boundary", async () => {
+    const semanticResponse = {
+      requirements: [
+        {
+          id: "req_ai_semantic",
+          type: "required_talking_point",
+          description: "Explain the editing-time benefit",
+          value: "The product reduces editing time",
+          before_seconds: null,
+          source_text: "Explain that the product helps reduce editing time.",
+        },
+      ],
+      meta: { ...RESPONSE.meta, prompt_version: "2.0" },
+    };
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(semanticResponse));
+
+    const result = await extractBriefRequirements(
+      { brief: "Explain that the product helps reduce editing time." },
+      { fetchImpl },
+    );
+
+    expect(result.requirements[0].type).toBe("required_talking_point");
+    expect(result.requirements[0].source_text).toBe(
+      "Explain that the product helps reduce editing time.",
+    );
+  });
+
   it("rejects malformed successful responses", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()

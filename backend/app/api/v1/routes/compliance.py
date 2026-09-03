@@ -1,9 +1,12 @@
-from fastapi import APIRouter
+from typing import cast
 
+from fastapi import APIRouter, Request
+
+from app.integrations.llm.base import SemanticVerifier
 from app.parsers.srt import parse_srt
 from app.schemas.compliance import ComplianceAnalyzeRequest, ComplianceAnalyzeResponse
 from app.schemas.errors import ErrorResponse
-from app.services.compliance_engine import evaluate_compliance
+from app.services.compliance_analysis import analyze_compliance as evaluate_compliance
 
 
 router = APIRouter(prefix="/compliance", tags=["compliance"])
@@ -19,9 +22,18 @@ router = APIRouter(prefix="/compliance", tags=["compliance"])
         500: {"model": ErrorResponse, "description": "Unexpected internal error"},
     },
 )
-def analyze_compliance(
-    request: ComplianceAnalyzeRequest,
+async def analyze_compliance(
+    payload: ComplianceAnalyzeRequest,
+    request: Request,
 ) -> ComplianceAnalyzeResponse:
-    transcript_segments = parse_srt(request.transcript.content)
-    report = evaluate_compliance(request.requirements, transcript_segments)
+    transcript_segments = parse_srt(payload.transcript.content)
+    semantic_verifier = cast(
+        SemanticVerifier,
+        request.app.state.semantic_verifier,
+    )
+    report = await evaluate_compliance(
+        payload.requirements,
+        transcript_segments,
+        semantic_verifier,
+    )
     return ComplianceAnalyzeResponse.from_domain(report)

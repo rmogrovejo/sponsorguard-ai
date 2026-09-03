@@ -69,6 +69,35 @@ function urlExtractionResponse() {
   };
 }
 
+function semanticExtractionResponse() {
+  return {
+    requirements: [
+      {
+        id: "req_ai_talking_point",
+        type: "required_talking_point",
+        description: "Explain the editing-time benefit",
+        value: "The product reduces editing time",
+        before_seconds: null,
+        source_text: "Explain that the product helps reduce editing time.",
+      },
+      {
+        id: "req_ai_forbidden_claim",
+        type: "forbidden_claim",
+        description: "Avoid an absolute privacy claim",
+        value: "The VPN makes users completely untraceable",
+        before_seconds: null,
+        source_text: "Do not claim the VPN makes users completely untraceable.",
+      },
+    ],
+    meta: {
+      provider: "test-provider",
+      model: "test-model",
+      prompt_version: "2.0",
+      requirement_count: 2,
+    },
+  };
+}
+
 describe("sponsor brief extraction workflow", () => {
   it("accepts a sponsor brief as an editorial document", async () => {
     render(<ReviewWorkspace />);
@@ -351,5 +380,87 @@ describe("sponsor brief extraction workflow", () => {
     expect(screen.getByLabelText("Requirement 2 target value")).toHaveValue(
       "acmevpn.com/creator",
     );
+  });
+
+  it("stages extracted semantic requirements with source provenance", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        jsonResponse(semanticExtractionResponse()),
+      ),
+    );
+    render(<ReviewWorkspace />);
+    const user = await enterBrief(
+      "Explain editing savings and avoid absolute privacy claims.",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Extract requirements" }));
+
+    const stagedReview = (await screen.findByRole("heading", {
+      name: "Extracted checklist",
+    })).closest(".extraction-review");
+    expect(stagedReview).not.toBeNull();
+    const staged = within(stagedReview as HTMLElement);
+    expect(staged.getByText("Required talking point")).toBeVisible();
+    expect(staged.getByText("Forbidden claim")).toBeVisible();
+    expect(
+      staged.getByText(
+        "“Explain that the product helps reduce editing time.”",
+      ),
+    ).toBeVisible();
+  });
+
+  it("appends semantic suggestions into the same editable human-review checklist", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        jsonResponse(semanticExtractionResponse()),
+      ),
+    );
+    render(<ReviewWorkspace />);
+    const user = await enterBrief(
+      "Explain editing savings and avoid absolute privacy claims.",
+    );
+    await user.click(screen.getByRole("button", { name: "Extract requirements" }));
+
+    await user.click(
+      await screen.findByRole("button", { name: "Append 2 to checklist" }),
+    );
+
+    expect(screen.getByLabelText("Requirement 2 type")).toHaveValue(
+      "required_talking_point",
+    );
+    expect(screen.getByLabelText("Requirement 3 type")).toHaveValue(
+      "forbidden_claim",
+    );
+    const talkingPoint = screen.getByLabelText(
+      "What viewers should understand",
+    );
+    await user.clear(talkingPoint);
+    await user.type(talkingPoint, "Viewers can finish edits sooner");
+    expect(talkingPoint).toHaveValue("Viewers can finish edits sooner");
+  });
+
+  it("can exclude a staged semantic suggestion before acceptance", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        jsonResponse(semanticExtractionResponse()),
+      ),
+    );
+    render(<ReviewWorkspace />);
+    const user = await enterBrief("Explain editing savings and avoid a claim.");
+    await user.click(screen.getByRole("button", { name: "Extract requirements" }));
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Exclude extracted requirement Avoid an absolute privacy claim",
+      }),
+    );
+
+    expect(screen.getByRole("button", { name: "Append 1 to checklist" })).toBeVisible();
+    expect(
+      screen.queryByText("The VPN makes users completely untraceable"),
+    ).not.toBeInTheDocument();
   });
 });

@@ -2,7 +2,7 @@
 
 Automated QA for creator sponsorships — catch compliance mistakes before publishing.
 
-This monorepo contains a React/Vite review workspace and a FastAPI deterministic compliance API. Reviewers can extract a human-reviewable checklist from a sponsor brief, correct the checklist, submit an SRT transcript, and inspect timestamped PASS/WARNING/FAIL findings. AI extraction never decides compliance.
+This monorepo contains a React/Vite review workspace and a FastAPI compliance API. Reviewers can extract a human-reviewable checklist from a sponsor brief, correct it, submit an SRT transcript, and inspect grounded PASS/WARNING/FAIL/NOT EVALUATED findings. Deterministic rules remain authoritative; two explicit semantic rule types use isolated AI verification with source-index grounding and reviewable failure states.
 
 ## Project structure
 

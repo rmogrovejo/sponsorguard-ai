@@ -13,6 +13,7 @@ DEFAULT_LLM_PROVIDER = "gemini"
 DEFAULT_GEMINI_MODEL = "gemini-3.7-flash"
 DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
 DEFAULT_LLM_TIMEOUT_SECONDS = 20.0
+DEFAULT_SEMANTIC_TIMEOUT_SECONDS = 60.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +25,7 @@ class Settings:
     gemini_api_key: str | None = field(default=None, repr=False)
     openai_api_key: str | None = field(default=None, repr=False)
     llm_timeout_seconds: float = DEFAULT_LLM_TIMEOUT_SECONDS
+    semantic_timeout_seconds: float = DEFAULT_SEMANTIC_TIMEOUT_SECONDS
 
     def __post_init__(self) -> None:
         if self.max_request_body_bytes < 1:
@@ -40,6 +42,11 @@ class Settings:
             raise ValueError("openai_api_key cannot be blank")
         if not isfinite(self.llm_timeout_seconds) or self.llm_timeout_seconds <= 0:
             raise ValueError("llm_timeout_seconds must be a positive finite number")
+        if (
+            not isfinite(self.semantic_timeout_seconds)
+            or self.semantic_timeout_seconds <= 0
+        ):
+            raise ValueError("semantic_timeout_seconds must be a positive finite number")
         for origin in self.allowed_origins:
             _validate_origin(origin)
 
@@ -84,6 +91,17 @@ class Settings:
                     "SPONSORGUARD_LLM_TIMEOUT_SECONDS must be a number"
                 ) from error
 
+        raw_semantic_timeout = os.getenv("SPONSORGUARD_SEMANTIC_TIMEOUT_SECONDS")
+        if raw_semantic_timeout is None:
+            semantic_timeout_seconds = DEFAULT_SEMANTIC_TIMEOUT_SECONDS
+        else:
+            try:
+                semantic_timeout_seconds = float(raw_semantic_timeout)
+            except ValueError as error:
+                raise ValueError(
+                    "SPONSORGUARD_SEMANTIC_TIMEOUT_SECONDS must be a number"
+                ) from error
+
         gemini_api_key = _optional_environment_value("GEMINI_API_KEY")
         openai_api_key = _optional_environment_value("OPENAI_API_KEY")
         configured_model = os.getenv("SPONSORGUARD_LLM_MODEL")
@@ -98,6 +116,7 @@ class Settings:
             gemini_api_key=gemini_api_key,
             openai_api_key=openai_api_key,
             llm_timeout_seconds=llm_timeout_seconds,
+            semantic_timeout_seconds=semantic_timeout_seconds,
         )
 
 

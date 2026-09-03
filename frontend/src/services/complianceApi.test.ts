@@ -36,6 +36,27 @@ describe("compliance API client", () => {
     );
   });
 
+  it("accepts an all-not-evaluated report with a null score", async () => {
+    const responseBody = responseForRequest(REQUEST, "not_evaluated");
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(responseBody));
+
+    const response = await analyzeCompliance(REQUEST, { fetchImpl });
+
+    expect(response.summary).toEqual({
+      total: 1,
+      evaluated: 0,
+      not_evaluated: 1,
+      passed: 0,
+      warnings: 0,
+      failed: 0,
+      compliance_score: null,
+      verification_coverage: 0,
+    });
+    expect(response.results[0].status).toBe("not_evaluated");
+  });
+
   it("translates structured transcript failures", async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse(

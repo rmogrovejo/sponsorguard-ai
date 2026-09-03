@@ -121,7 +121,7 @@ def test_valid_brief_returns_typed_requirements_with_provenance_and_meta() -> No
     assert body["meta"] == {
         "provider": "stub-provider",
         "model": "stub-model",
-        "prompt_version": "1.1",
+        "prompt_version": "2.0",
         "requirement_count": 3,
     }
     assert all(item["id"].startswith("req_ai_") for item in body["requirements"])
@@ -257,6 +257,44 @@ def test_extraction_endpoint_serializes_required_url_with_provenance() -> None:
     assert requirement["type"] == "required_url"
     assert requirement["value"] == "acmevpn.com/creator"
     assert requirement["source_text"] == "Tell viewers to visit acmevpn.com/creator."
+
+
+def test_extraction_endpoint_serializes_semantic_suggestions_for_human_review() -> None:
+    provider = StubProvider(
+        result=BriefExtractionOutput(
+            requirements=(
+                BriefRequirementCandidate(
+                    type=RequirementType.REQUIRED_TALKING_POINT,
+                    description="Explain the editing-time benefit",
+                    value="The product reduces editing time",
+                    before_seconds=None,
+                    source_text="Explain that the product helps reduce editing time.",
+                ),
+                BriefRequirementCandidate(
+                    type=RequirementType.FORBIDDEN_CLAIM,
+                    description="Avoid an untraceability claim",
+                    value="The VPN makes users completely untraceable",
+                    before_seconds=None,
+                    source_text="Do not claim the VPN makes users untraceable.",
+                ),
+            )
+        )
+    )
+
+    response = make_client(provider).post(
+        ENDPOINT,
+        json={"brief": "Explain editing savings without claiming untraceability."},
+    )
+
+    assert response.status_code == 200
+    requirements = response.json()["requirements"]
+    assert [item["type"] for item in requirements] == [
+        "required_talking_point",
+        "forbidden_claim",
+    ]
+    assert requirements[0]["source_text"] == (
+        "Explain that the product helps reduce editing time."
+    )
 
 
 def test_invalid_request_id_is_replaced_on_provider_error() -> None:

@@ -37,6 +37,33 @@ async function fillFirstRequirement(
   return user;
 }
 
+async function fillSemanticRequirement(
+  type: "required_talking_point" | "forbidden_claim",
+) {
+  const user = userEvent.setup();
+  await user.type(
+    screen.getByLabelText("Campaign or review name"),
+    "Semantic campaign review",
+  );
+  await user.selectOptions(screen.getByLabelText("Requirement 1 type"), type);
+  await user.type(
+    screen.getByLabelText("Requirement 1 description"),
+    type === "required_talking_point"
+      ? "Explain the editing-time benefit"
+      : "Avoid an absolute privacy claim",
+  );
+  await user.type(
+    screen.getByLabelText("Requirement 1 target value"),
+    type === "required_talking_point"
+      ? "The product reduces editing time"
+      : "The VPN makes users completely untraceable",
+  );
+  fireEvent.change(screen.getByLabelText("SRT transcript"), {
+    target: { value: VALID_SRT },
+  });
+  return user;
+}
+
 function requestFromInit(init: RequestInit | undefined): AnalyzeComplianceRequest {
   return JSON.parse(String(init?.body)) as AnalyzeComplianceRequest;
 }
@@ -96,10 +123,13 @@ describe("review workflow", () => {
       return jsonResponse({
         summary: {
           total: 2,
+          evaluated: 2,
+          not_evaluated: 0,
           passed: 1,
           warnings: 0,
           failed: 1,
           compliance_score: 50,
+          verification_coverage: 100,
         },
         results: [
           {
@@ -289,5 +319,275 @@ describe("review workflow", () => {
     expect(
       await screen.findByLabelText("Compliance status: Pass"),
     ).toHaveTextContent("Pass");
+  });
+
+  it("renders a semantic PASS with grounded evidence and verification metadata", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (_input, init) => {
+      const request = requestFromInit(init);
+      return jsonResponse({
+        summary: {
+          total: 1,
+          evaluated: 1,
+          not_evaluated: 0,
+          passed: 1,
+          warnings: 0,
+          failed: 0,
+          compliance_score: 100,
+          verification_coverage: 100,
+        },
+        results: [
+          {
+            requirement_id: request.requirements[0].id,
+            status: "pass",
+            reason_code: "SEMANTIC_REQUIREMENT_CONFIRMED",
+            reason: "Semantic verification confirmed the required talking point.",
+            source_segment_index: 1,
+            timestamp_seconds: 38,
+            evidence: "Today's video is sponsored by AcmeVPN.",
+          },
+        ],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ReviewWorkspace />);
+    const user = await fillSemanticRequirement("required_talking_point");
+
+    await user.click(screen.getByRole("button", { name: "Analyze review" }));
+
+    expect(
+      await screen.findByLabelText("Compliance status: Pass"),
+    ).toBeVisible();
+    expect(screen.getByText("VERIFICATION / SEMANTIC")).toBeVisible();
+    expect(screen.getByText("00:38")).toBeVisible();
+    expect(
+      screen.getByText("“Today's video is sponsored by AcmeVPN.”"),
+    ).toBeVisible();
+  });
+
+  it("sends an accepted semantic requirement through the existing analysis payload", async () => {
+    const fetchMock = successfulFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ReviewWorkspace />);
+    const user = await fillSemanticRequirement("required_talking_point");
+
+    await user.click(screen.getByRole("button", { name: "Analyze review" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+
+    const request = requestFromInit(fetchMock.mock.calls[0][1]);
+    expect(request.requirements[0]).toEqual({
+      id: expect.stringMatching(/^req_[a-f0-9]{32}$/),
+      type: "required_talking_point",
+      description: "Explain the editing-time benefit",
+      value: "The product reduces editing time",
+    });
+  });
+
+  it("renders a semantic forbidden-claim FAIL without invented evidence", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (_input, init) => {
+      const request = requestFromInit(init);
+      return jsonResponse({
+        summary: {
+          total: 1,
+          evaluated: 1,
+          not_evaluated: 0,
+          passed: 0,
+          warnings: 0,
+          failed: 1,
+          compliance_score: 0,
+          verification_coverage: 100,
+        },
+        results: [
+          {
+            requirement_id: request.requirements[0].id,
+            status: "fail",
+            reason_code: "FORBIDDEN_CLAIM_DETECTED",
+            reason: "Semantic verification detected the prohibited claim.",
+            source_segment_index: 1,
+            timestamp_seconds: 38,
+            evidence: "Today's video is sponsored by AcmeVPN.",
+          },
+        ],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ReviewWorkspace />);
+    const user = await fillSemanticRequirement("forbidden_claim");
+
+    await user.click(screen.getByRole("button", { name: "Analyze review" }));
+
+    expect(
+      await screen.findByLabelText("Compliance status: Fail"),
+    ).toBeVisible();
+    expect(
+      screen.getByText("Semantic verification detected the prohibited claim."),
+    ).toBeVisible();
+    expect(screen.getByText("VERIFICATION / SEMANTIC")).toBeVisible();
+  });
+
+  it("renders semantic content uncertainty as an accessible grounded WARNING", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (_input, init) => {
+      const request = requestFromInit(init);
+      return jsonResponse({
+        summary: {
+          total: 1,
+          evaluated: 1,
+          not_evaluated: 0,
+          passed: 0,
+          warnings: 1,
+          failed: 0,
+          compliance_score: 50,
+          verification_coverage: 100,
+        },
+        results: [
+          {
+            requirement_id: request.requirements[0].id,
+            status: "warning",
+            reason_code: "SEMANTIC_REQUIREMENT_UNCERTAIN",
+            reason:
+              "The required talking point could not be confirmed with enough certainty.",
+            source_segment_index: 1,
+            timestamp_seconds: 38,
+            evidence: "Today's video is sponsored by AcmeVPN.",
+          },
+        ],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ReviewWorkspace />);
+    const user = await fillSemanticRequirement("required_talking_point");
+
+    await user.click(screen.getByRole("button", { name: "Analyze review" }));
+
+    expect(
+      await screen.findByLabelText("Compliance status: Warning"),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        "The required talking point could not be confirmed with enough certainty.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText("“Today's video is sponsored by AcmeVPN.”"),
+    ).toBeVisible();
+  });
+
+  it("keeps deterministic findings visible when semantic verification is unavailable", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (_input, init) => {
+      const request = requestFromInit(init);
+      return jsonResponse({
+        summary: {
+          total: 2,
+          evaluated: 1,
+          not_evaluated: 1,
+          passed: 1,
+          warnings: 0,
+          failed: 0,
+          compliance_score: 100,
+          verification_coverage: 50,
+        },
+        results: [
+          {
+            requirement_id: request.requirements[0].id,
+            status: "not_evaluated",
+            reason_code: "SEMANTIC_VERIFICATION_UNAVAILABLE",
+            reason:
+              "Semantic verification temporarily unavailable. Retry this verification before publishing.",
+            source_segment_index: null,
+            timestamp_seconds: null,
+            evidence: null,
+          },
+          {
+            requirement_id: request.requirements[1].id,
+            status: "pass",
+            reason_code: "REQUIRED_MENTION_FOUND",
+            reason: "Required mention found.",
+            source_segment_index: 1,
+            timestamp_seconds: 38,
+            evidence: "Today's video is sponsored by AcmeVPN.",
+          },
+        ],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ReviewWorkspace />);
+    const user = await fillSemanticRequirement("required_talking_point");
+    await user.click(screen.getByRole("button", { name: "Add requirement" }));
+    await user.type(
+      screen.getByLabelText("Requirement 2 description"),
+      "Mention AcmeVPN",
+    );
+    await user.type(
+      screen.getByLabelText("Requirement 2 target value"),
+      "AcmeVPN",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Analyze review" }));
+
+    expect(
+      await screen.findByLabelText("Compliance status: Not evaluated"),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Compliance status: Pass")).toBeVisible();
+    expect(
+      screen.getByText(
+        "Semantic verification temporarily unavailable. Retry this verification before publishing.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByText("Mention AcmeVPN")).toBeVisible();
+    expect(
+      screen.getByLabelText(
+        "Verification coverage 50 percent; 1 of 2 evaluated",
+      ),
+    ).toHaveTextContent("1 / 2");
+    expect(screen.getByLabelText("Compliance score 100 out of 100")).toBeVisible();
+  });
+
+  it("renders an unavailable score when no requirements were evaluated", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (_input, init) => {
+      const request = requestFromInit(init);
+      return jsonResponse({
+        summary: {
+          total: 1,
+          evaluated: 0,
+          not_evaluated: 1,
+          passed: 0,
+          warnings: 0,
+          failed: 0,
+          compliance_score: null,
+          verification_coverage: 0,
+        },
+        results: [
+          {
+            requirement_id: request.requirements[0].id,
+            status: "not_evaluated",
+            reason_code: "SEMANTIC_VERIFICATION_UNAVAILABLE",
+            reason:
+              "Semantic verification temporarily unavailable. Retry this verification before publishing.",
+            source_segment_index: null,
+            timestamp_seconds: null,
+            evidence: null,
+          },
+        ],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ReviewWorkspace />);
+    const user = await fillSemanticRequirement("required_talking_point");
+
+    await user.click(screen.getByRole("button", { name: "Analyze review" }));
+
+    expect(await screen.findByLabelText("Compliance score unavailable")).toHaveTextContent(
+      "—not scored",
+    );
+    expect(
+      screen.getByLabelText("Verification coverage 0 percent; 0 of 1 evaluated"),
+    ).toHaveTextContent("0 / 1");
+    expect(
+      screen.getByLabelText("Compliance status: Not evaluated"),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Campaign or review name")).toHaveValue(
+      "Semantic campaign review",
+    );
+    expect(screen.getByLabelText("SRT transcript")).toHaveValue(VALID_SRT);
+    expect(screen.getByRole("button", { name: "Analyze review" })).toBeEnabled();
   });
 });

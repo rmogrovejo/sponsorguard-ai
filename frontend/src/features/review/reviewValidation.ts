@@ -111,7 +111,11 @@ export function validateReviewDraft(draft: ReviewDraft): ReviewValidationResult 
       fieldErrors.value =
         requirement.type === "required_url"
           ? "Enter a campaign URL."
-          : "Enter the phrase or token to check.";
+          : requirement.type === "required_talking_point"
+            ? "Describe what viewers should understand."
+            : requirement.type === "forbidden_claim"
+              ? "Describe the meaning the creator must not communicate."
+              : "Enter the phrase or token to check.";
     } else if (
       requirement.type === "required_url" &&
       !isValidCampaignUrl(requirement.value)

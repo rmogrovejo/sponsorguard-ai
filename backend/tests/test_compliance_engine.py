@@ -303,10 +303,13 @@ def test_results_preserve_requirement_order_and_summary_is_exact() -> None:
     ]
     assert report.summary.model_dump() == {
         "total": 3,
+        "evaluated": 3,
+        "not_evaluated": 0,
         "passed": 1,
         "warnings": 0,
         "failed": 2,
         "compliance_score": 33.33,
+        "verification_coverage": 100.0,
     }
 
 

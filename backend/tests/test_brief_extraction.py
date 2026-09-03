@@ -71,7 +71,7 @@ def test_valid_simple_extraction_maps_to_domain_requirement() -> None:
     }
     assert report.provider == "test-provider"
     assert report.model == "test-model"
-    assert report.prompt_version == "1.1"
+    assert report.prompt_version == "2.0"
 
 
 def test_multiple_supported_rule_types_preserve_provider_order() -> None:
@@ -102,16 +102,86 @@ def test_multiple_supported_rule_types_preserve_provider_order() -> None:
                 value="https://www.acmevpn.com/creator/",
                 source_text="Tell viewers to visit acmevpn.com/creator.",
             ),
+            candidate(
+                RequirementType.REQUIRED_TALKING_POINT,
+                description="Explain the editing-time benefit",
+                value="The product reduces editing time",
+                source_text="Explain that the product helps reduce editing time.",
+            ),
+            candidate(
+                RequirementType.FORBIDDEN_CLAIM,
+                description="Avoid an untraceability claim",
+                value="The service makes users completely untraceable",
+                source_text="Do not claim users become completely untraceable.",
+            ),
         )
     )
 
-    report = run_extract(provider, ids=iter(f"req_ai_{i}" for i in range(5)))
+    report = run_extract(provider, ids=iter(f"req_ai_{i}" for i in range(7)))
 
     assert [item.requirement.type for item in report.requirements] == list(
         RequirementType
     )
     assert report.requirements[3].requirement.before_seconds == 60
     assert report.requirements[4].requirement.value == "acmevpn.com/creator"
+
+
+def test_semantic_extraction_maps_talking_point_and_forbidden_claim_with_provenance() -> None:
+    provider = FakeProvider(
+        output(
+            candidate(
+                RequirementType.REQUIRED_TALKING_POINT,
+                description="Explain the editing-time benefit",
+                value="The product reduces editing time",
+                source_text="Tell viewers the product can reduce editing time.",
+            ),
+            candidate(
+                RequirementType.FORBIDDEN_CLAIM,
+                description="Avoid an absolute anonymity claim",
+                value="The VPN makes users completely untraceable",
+                source_text="Do not claim the VPN makes users completely untraceable.",
+            ),
+        )
+    )
+
+    report = run_extract(provider, ids=iter(["req_ai_talking", "req_ai_claim"]))
+
+    assert [item.requirement.type for item in report.requirements] == [
+        RequirementType.REQUIRED_TALKING_POINT,
+        RequirementType.FORBIDDEN_CLAIM,
+    ]
+    assert report.requirements[0].source_text == (
+        "Tell viewers the product can reduce editing time."
+    )
+    assert report.requirements[1].source_text == (
+        "Do not claim the VPN makes users completely untraceable."
+    )
+
+
+def test_exact_coupon_and_quoted_forbidden_phrase_remain_deterministic() -> None:
+    provider = FakeProvider(
+        output(
+            candidate(
+                RequirementType.REQUIRED_EXACT_TOKEN,
+                description="Use the exact coupon",
+                value="CREATOR25",
+                source_text="Use code CREATOR25.",
+            ),
+            candidate(
+                RequirementType.FORBIDDEN_PHRASE,
+                description="Do not use the quoted phrase",
+                value="guaranteed anonymity",
+                source_text='Do not say the phrase "guaranteed anonymity".',
+            ),
+        )
+    )
+
+    report = run_extract(provider, ids=iter(["req_ai_code", "req_ai_phrase"]))
+
+    assert [item.requirement.type for item in report.requirements] == [
+        RequirementType.REQUIRED_EXACT_TOKEN,
+        RequirementType.FORBIDDEN_PHRASE,
+    ]
 
 
 def test_explicit_url_extraction_preserves_source_provenance() -> None:

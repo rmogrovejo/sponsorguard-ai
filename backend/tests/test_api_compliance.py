@@ -38,10 +38,13 @@ def test_valid_srt_with_passing_requirement() -> None:
     assert response.json() == {
         "summary": {
             "total": 1,
+            "evaluated": 1,
+            "not_evaluated": 0,
             "passed": 1,
             "warnings": 0,
             "failed": 0,
             "compliance_score": 100.0,
+            "verification_coverage": 100.0,
         },
         "results": [
             {
@@ -71,10 +74,13 @@ def test_valid_srt_with_failing_requirement() -> None:
     assert response.json() == {
         "summary": {
             "total": 1,
+            "evaluated": 1,
+            "not_evaluated": 0,
             "passed": 0,
             "warnings": 0,
             "failed": 1,
             "compliance_score": 0.0,
+            "verification_coverage": 100.0,
         },
         "results": [
             {
@@ -132,10 +138,13 @@ def test_mixed_acme_campaign_preserves_order_and_summary() -> None:
     ]
     assert body["summary"] == {
         "total": 4,
+        "evaluated": 4,
+        "not_evaluated": 0,
         "passed": 2,
         "warnings": 0,
         "failed": 2,
         "compliance_score": 50.0,
+        "verification_coverage": 100.0,
     }
 
 
@@ -188,10 +197,13 @@ def test_analyze_endpoint_accepts_required_url_and_serializes_result() -> None:
     assert response.json() == {
         "summary": {
             "total": 1,
+            "evaluated": 1,
+            "not_evaluated": 0,
             "passed": 1,
             "warnings": 0,
             "failed": 0,
             "compliance_score": 100.0,
+            "verification_coverage": 100.0,
         },
         "results": [
             {

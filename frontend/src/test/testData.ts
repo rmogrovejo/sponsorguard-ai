@@ -19,25 +19,35 @@ export function responseForRequest(
   const passed = status === "pass" ? 1 : 0;
   const warnings = status === "warning" ? 1 : 0;
   const failed = status === "fail" ? 1 : 0;
+  const notEvaluated = status === "not_evaluated" ? 1 : 0;
+  const evaluated = 1 - notEvaluated;
 
   return {
     summary: {
       total: 1,
+      evaluated,
+      not_evaluated: notEvaluated,
       passed,
       warnings,
       failed,
-      compliance_score: passed * 100 + warnings * 50,
+      compliance_score:
+        evaluated === 0 ? null : passed * 100 + warnings * 50,
+      verification_coverage: evaluated * 100,
     },
     results: [
       {
         requirement_id: request.requirements[0].id,
         status,
         reason_code:
-          status === "pass"
+          status === "not_evaluated"
+            ? "SEMANTIC_VERIFICATION_UNAVAILABLE"
+            : status === "pass"
             ? "REQUIRED_MENTION_FOUND"
             : "REQUIRED_MENTION_MISSING",
         reason:
-          status === "pass"
+          status === "not_evaluated"
+            ? "Semantic verification temporarily unavailable."
+            : status === "pass"
             ? "Required mention found."
             : "Required mention was not found.",
         source_segment_index: status === "pass" ? 1 : null,

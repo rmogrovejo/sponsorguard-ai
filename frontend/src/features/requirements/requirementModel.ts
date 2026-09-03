@@ -22,9 +22,19 @@ export const REQUIREMENT_OPTIONS: ReadonlyArray<{
     targetLabel: "Campaign URL",
   },
   {
+    value: "required_talking_point",
+    label: "Required talking point",
+    targetLabel: "What viewers should understand",
+  },
+  {
     value: "forbidden_phrase",
     label: "Forbidden phrase",
     targetLabel: "Forbidden phrase",
+  },
+  {
+    value: "forbidden_claim",
+    label: "Forbidden claim",
+    targetLabel: "Meaning the creator must not communicate",
   },
   {
     value: "required_mention_before",
@@ -68,6 +78,10 @@ export function getRequirementLabel(type: RequirementType): string {
     REQUIREMENT_OPTIONS.find((option) => option.value === type)?.label ??
     "Sponsorship requirement"
   );
+}
+
+export function isSemanticRequirementType(type: RequirementType): boolean {
+  return type === "required_talking_point" || type === "forbidden_claim";
 }
 
 export function createExtractedRequirementDraft(

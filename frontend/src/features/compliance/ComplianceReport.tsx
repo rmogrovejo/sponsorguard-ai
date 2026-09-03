@@ -3,6 +3,7 @@ import type { RefObject } from "react";
 import type { ComplianceStatus } from "../../types/compliance";
 import { formatTimestamp } from "../../utils/timestamp";
 import type { ReviewReportSnapshot } from "../review/useComplianceAnalysis";
+import { isSemanticRequirementType } from "../requirements/requirementModel";
 
 interface ComplianceReportProps {
   report: ReviewReportSnapshot;
@@ -13,6 +14,7 @@ const STATUS_LABELS: Record<ComplianceStatus, string> = {
   pass: "Pass",
   warning: "Warning",
   fail: "Fail",
+  not_evaluated: "Not evaluated",
 };
 
 function formatScore(score: number): string {
@@ -34,18 +36,40 @@ export function ComplianceReport({
             {report.campaignName}
           </h2>
           <p>
-            Deterministic pre-publish findings from the submitted requirements
-            and transcript.
+            Grounded pre-publish findings from the submitted requirements and
+            transcript.
           </p>
         </div>
 
-        <div
-          className="score-block"
-          aria-label={`Compliance score ${formatScore(summary.compliance_score)} out of 100`}
-        >
-          <span className="mono-label">COMPLIANCE SCORE</span>
-          <strong>{formatScore(summary.compliance_score)}</strong>
-          <span>/ 100</span>
+        <div className="report-metrics">
+          <div
+            className="score-block"
+            aria-label={
+              summary.compliance_score === null
+                ? "Compliance score unavailable"
+                : `Compliance score ${formatScore(summary.compliance_score)} out of 100`
+            }
+          >
+            <span className="mono-label">COMPLIANCE SCORE</span>
+            <strong>
+              {summary.compliance_score === null
+                ? "—"
+                : formatScore(summary.compliance_score)}
+            </strong>
+            <span>
+              {summary.compliance_score === null ? "not scored" : "/ 100"}
+            </span>
+          </div>
+          <div
+            className="coverage-block"
+            aria-label={`Verification coverage ${formatScore(summary.verification_coverage)} percent; ${summary.evaluated} of ${summary.total} evaluated`}
+          >
+            <span className="mono-label">VERIFICATION COVERAGE</span>
+            <strong>
+              {summary.evaluated} / {summary.total}
+            </strong>
+            <span>evaluated</span>
+          </div>
         </div>
       </header>
 
@@ -66,6 +90,10 @@ export function ComplianceReport({
           <dt>Failed</dt>
           <dd>{summary.failed}</dd>
         </div>
+        <div className="summary-strip__not-evaluated">
+          <dt>Not evaluated</dt>
+          <dd>{summary.not_evaluated}</dd>
+        </div>
       </dl>
 
       <div className="findings-heading">
@@ -80,6 +108,10 @@ export function ComplianceReport({
             result.timestamp_seconds === null
               ? null
               : formatTimestamp(result.timestamp_seconds);
+          const requirementType = report.requirementTypes[result.requirement_id];
+          const isSemantic =
+            requirementType !== undefined &&
+            isSemanticRequirementType(requirementType);
 
           return (
             <li key={result.requirement_id} className="finding">
@@ -103,6 +135,11 @@ export function ComplianceReport({
               </header>
 
               <div className="finding__body">
+                {isSemantic && (
+                  <p className="finding__verification mono-label">
+                    VERIFICATION / SEMANTIC
+                  </p>
+                )}
                 <p className="finding__reason">{result.reason}</p>
 
                 {result.evidence !== null && timestamp !== null && (

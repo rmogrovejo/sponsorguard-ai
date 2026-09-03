@@ -8,6 +8,7 @@ import type {
   AnalyzeComplianceResponse,
   RequestPhase,
   RequirementDraft,
+  RequirementType,
 } from "../../types/compliance";
 import {
   validateReviewDraft,
@@ -18,6 +19,7 @@ import {
 export interface ReviewReportSnapshot {
   campaignName: string;
   requirementDescriptions: Record<string, string>;
+  requirementTypes: Record<string, RequirementType>;
   response: AnalyzeComplianceResponse;
 }
 
@@ -39,6 +41,14 @@ function snapshotDescriptions(
       requirement.id,
       requirement.description.trim(),
     ]),
+  );
+}
+
+function snapshotTypes(
+  requirements: RequirementDraft[],
+): Record<string, RequirementType> {
+  return Object.fromEntries(
+    requirements.map((requirement) => [requirement.id, requirement.type]),
   );
 }
 
@@ -83,6 +93,7 @@ export function useComplianceAnalysis() {
       setReport({
         campaignName: draft.campaignName.trim(),
         requirementDescriptions: snapshotDescriptions(draft.requirements),
+        requirementTypes: snapshotTypes(draft.requirements),
         response,
       });
       setPhase("success");

@@ -5,11 +5,13 @@ from typing import cast
 
 from app.domain.compliance import ComplianceReport, ComplianceResult
 from app.domain.requirements import (
+    ForbiddenClaimRequirement,
     ForbiddenPhraseRequirement,
     RequiredExactTokenRequirement,
     RequiredMentionBeforeRequirement,
     RequiredMentionRequirement,
     RequiredURLRequirement,
+    RequiredTalkingPointRequirement,
     Requirement,
     RequirementType,
     SponsorshipRequirement,
@@ -71,6 +73,8 @@ _SUPPORTED_REQUIREMENT_MODELS = (
     ForbiddenPhraseRequirement,
     RequiredMentionBeforeRequirement,
     RequiredURLRequirement,
+    RequiredTalkingPointRequirement,
+    ForbiddenClaimRequirement,
 )
 
 
@@ -80,24 +84,35 @@ def evaluate_compliance(
 ) -> ComplianceReport:
     """Evaluate validated requirements in their supplied order."""
 
-    validated_requirements = _validate_requirements(requirements)
-    validated_segments = _validate_transcript(transcript_segments)
+    validated_requirements = validate_requirements(requirements)
+    validated_segments = validate_transcript(transcript_segments)
 
     results: list[ComplianceResult] = []
     for requirement in validated_requirements:
-        checker = _CHECKERS.get(requirement.type)
-        if checker is None:
-            raise ComplianceInputError(
-                f"Unsupported requirement type: {requirement.type!s}.",
-                code=ComplianceInputErrorCode.UNSUPPORTED_REQUIREMENT_TYPE,
-            )
-        results.append(checker(requirement, validated_segments))
+        results.append(
+            evaluate_deterministic_requirement(requirement, validated_segments)
+        )
 
     summary = summarize_results(results)
     return ComplianceReport(results=tuple(results), summary=summary)
 
 
-def _validate_requirements(
+def evaluate_deterministic_requirement(
+    requirement: Requirement,
+    transcript_segments: Sequence[TranscriptSegment],
+) -> ComplianceResult:
+    """Evaluate one deterministic rule; semantic rules are deliberately rejected."""
+
+    checker = _CHECKERS.get(requirement.type)
+    if checker is None:
+        raise ComplianceInputError(
+            f"Unsupported deterministic requirement type: {requirement.type!s}.",
+            code=ComplianceInputErrorCode.UNSUPPORTED_REQUIREMENT_TYPE,
+        )
+    return checker(requirement, transcript_segments)
+
+
+def validate_requirements(
     requirements: object,
 ) -> tuple[Requirement, ...]:
     if not isinstance(requirements, Sequence) or isinstance(
@@ -135,7 +150,7 @@ def _validate_requirements(
     return tuple(validated)
 
 
-def _validate_transcript(
+def validate_transcript(
     transcript_segments: object,
 ) -> tuple[TranscriptSegment, ...]:
     if not isinstance(transcript_segments, Sequence) or isinstance(

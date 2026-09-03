@@ -3,7 +3,9 @@ export type RequirementType =
   | "required_exact_token"
   | "forbidden_phrase"
   | "required_mention_before"
-  | "required_url";
+  | "required_url"
+  | "required_talking_point"
+  | "forbidden_claim";
 
 export interface RequirementDraft {
   id: string;
@@ -40,14 +42,17 @@ export interface AnalyzeComplianceRequest {
   };
 }
 
-export type ComplianceStatus = "pass" | "warning" | "fail";
+export type ComplianceStatus = "pass" | "warning" | "fail" | "not_evaluated";
 
 export interface ComplianceSummary {
   total: number;
+  evaluated: number;
+  not_evaluated: number;
   passed: number;
   warnings: number;
   failed: number;
-  compliance_score: number;
+  compliance_score: number | null;
+  verification_coverage: number;
 }
 
 export interface ComplianceResult {

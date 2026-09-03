@@ -171,4 +171,69 @@ describe("requirements workspace", () => {
       "Enter a valid campaign URL such as acmevpn.com/creator.",
     );
   });
+
+  it("offers and edits a Required talking point in nontechnical language", async () => {
+    const user = userEvent.setup();
+    render(<ReviewWorkspace />);
+
+    await user.selectOptions(
+      screen.getByLabelText("Requirement 1 type"),
+      "required_talking_point",
+    );
+    const meaning = screen.getByLabelText("What viewers should understand");
+    await user.type(meaning, "The product reduces editing time");
+
+    expect(meaning).toHaveValue("The product reduces editing time");
+    expect(meaning).toHaveAttribute(
+      "placeholder",
+      "e.g. The product reduces editing time",
+    );
+    expect(
+      screen.queryByLabelText("Requirement 1 deadline in seconds"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers and edits a Forbidden claim with an accessible meaning label", async () => {
+    const user = userEvent.setup();
+    render(<ReviewWorkspace />);
+
+    await user.selectOptions(
+      screen.getByLabelText("Requirement 1 type"),
+      "forbidden_claim",
+    );
+    const meaning = screen.getByLabelText(
+      "Meaning the creator must not communicate",
+    );
+    await user.type(meaning, "The VPN makes users completely untraceable");
+
+    expect(meaning).toHaveValue(
+      "The VPN makes users completely untraceable",
+    );
+  });
+
+  it("associates semantic target validation with the meaning field", async () => {
+    const user = userEvent.setup();
+    render(<ReviewWorkspace />);
+    await user.type(
+      screen.getByLabelText("Campaign or review name"),
+      "Semantic review",
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Requirement 1 type"),
+      "required_talking_point",
+    );
+    await user.type(
+      screen.getByLabelText("Requirement 1 description"),
+      "Explain the benefit",
+    );
+    await user.type(screen.getByLabelText("SRT transcript"), "not empty");
+
+    await user.click(screen.getByRole("button", { name: "Analyze review" }));
+
+    const meaning = screen.getByLabelText("What viewers should understand");
+    expect(
+      await screen.findByText("Describe what viewers should understand."),
+    ).toBeVisible();
+    expect(meaning).toHaveAttribute("aria-invalid", "true");
+  });
 });

@@ -1,4 +1,4 @@
-from app.integrations.llm.base import LLMRequirementExtractor
+from app.integrations.llm.base import LLMRequirementExtractor, SemanticVerifier
 from app.integrations.llm.exceptions import LLMProviderError
 
-__all__ = ["LLMProviderError", "LLMRequirementExtractor"]
+__all__ = ["LLMProviderError", "LLMRequirementExtractor", "SemanticVerifier"]

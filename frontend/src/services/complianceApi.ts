@@ -51,30 +51,56 @@ function isFiniteNumber(value: unknown): value is number {
 function parseSummary(value: unknown): ComplianceSummary | null {
   if (!isRecord(value)) return null;
 
-  const { total, passed, warnings, failed, compliance_score: score } = value;
+  const {
+    total,
+    evaluated,
+    not_evaluated: notEvaluated,
+    passed,
+    warnings,
+    failed,
+    compliance_score: score,
+    verification_coverage: verificationCoverage,
+  } = value;
   if (
-    ![total, passed, warnings, failed].every(
+    ![total, evaluated, notEvaluated, passed, warnings, failed].every(
       (item) => Number.isInteger(item) && Number(item) >= 0,
     ) ||
-    !isFiniteNumber(score) ||
-    score < 0 ||
-    score > 100 ||
-    Number(total) !== Number(passed) + Number(warnings) + Number(failed)
+    Number(total) < 1 ||
+    Number(evaluated) + Number(notEvaluated) !== Number(total) ||
+    Number(evaluated) !== Number(passed) + Number(warnings) + Number(failed) ||
+    !(
+      (Number(evaluated) === 0 && score === null) ||
+      (Number(evaluated) > 0 &&
+        isFiniteNumber(score) &&
+        score >= 0 &&
+        score <= 100)
+    ) ||
+    !isFiniteNumber(verificationCoverage) ||
+    verificationCoverage < 0 ||
+    verificationCoverage > 100
   ) {
     return null;
   }
 
   return {
     total: Number(total),
+    evaluated: Number(evaluated),
+    not_evaluated: Number(notEvaluated),
     passed: Number(passed),
     warnings: Number(warnings),
     failed: Number(failed),
     compliance_score: score,
+    verification_coverage: verificationCoverage,
   };
 }
 
 function isStatus(value: unknown): value is ComplianceStatus {
-  return value === "pass" || value === "warning" || value === "fail";
+  return (
+    value === "pass" ||
+    value === "warning" ||
+    value === "fail" ||
+    value === "not_evaluated"
+  );
 }
 
 function parseResult(value: unknown): ComplianceResult | null {

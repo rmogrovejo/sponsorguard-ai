@@ -88,8 +88,11 @@ def test_mixed_campaign_preserves_order_and_scores_url_normally() -> None:
     ]
     assert report.summary.model_dump(mode="json") == {
         "total": 3,
+        "evaluated": 3,
+        "not_evaluated": 0,
         "passed": 2,
         "warnings": 0,
         "failed": 1,
         "compliance_score": 66.67,
+        "verification_coverage": 100.0,
     }

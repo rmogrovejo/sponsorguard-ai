@@ -50,7 +50,9 @@ function isRequirementType(value: unknown): value is RequirementType {
     value === "required_exact_token" ||
     value === "forbidden_phrase" ||
     value === "required_mention_before" ||
-    value === "required_url"
+    value === "required_url" ||
+    value === "required_talking_point" ||
+    value === "forbidden_claim"
   );
 }
 

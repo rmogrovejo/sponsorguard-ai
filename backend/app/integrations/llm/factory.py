@@ -1,8 +1,13 @@
+from collections.abc import Sequence
+
 from app.core.config import Settings
 from app.domain.extraction import BriefExtractionOutput
-from app.integrations.llm.base import LLMRequirementExtractor
+from app.domain.semantic import SemanticRequirement, SemanticVerificationOutput
+from app.domain.transcript import TranscriptSegment
+from app.integrations.llm.base import LLMRequirementExtractor, SemanticVerifier
 from app.integrations.llm.exceptions import LLMConfigurationError
 from app.integrations.llm.gemini_provider import GeminiRequirementExtractor
+from app.integrations.llm.gemini_semantic_provider import GeminiSemanticVerifier
 from app.integrations.llm.openai_provider import OpenAIRequirementExtractor
 
 
@@ -32,6 +37,36 @@ class UnconfiguredRequirementExtractor:
         self,
         brief: str,
     ) -> BriefExtractionOutput:
+        raise LLMConfigurationError(self._reason)
+
+
+class UnconfiguredSemanticVerifier:
+    """Turns optional-provider absence into a semantic-only review warning."""
+
+    def __init__(
+        self,
+        *,
+        provider_name: str,
+        model_name: str,
+        reason: str = "Semantic verification is not configured on this server.",
+    ) -> None:
+        self._provider_name = provider_name
+        self._model_name = model_name
+        self._reason = reason
+
+    @property
+    def provider_name(self) -> str:
+        return self._provider_name
+
+    @property
+    def model_name(self) -> str:
+        return self._model_name
+
+    async def verify_semantics(
+        self,
+        requirement: SemanticRequirement,
+        transcript_segments: Sequence[TranscriptSegment],
+    ) -> SemanticVerificationOutput:
         raise LLMConfigurationError(self._reason)
 
 
@@ -67,4 +102,29 @@ def create_requirement_extractor(settings: Settings) -> LLMRequirementExtractor:
         provider_name=provider_name,
         model_name=model_name,
         reason=f"Unsupported language-model provider: {provider_name}",
+    )
+
+
+def create_semantic_verifier(settings: Settings) -> SemanticVerifier:
+    provider_name = settings.llm_provider.strip().lower()
+    model_name = settings.resolved_llm_model
+
+    if provider_name == "gemini":
+        if settings.gemini_api_key is None:
+            return UnconfiguredSemanticVerifier(
+                provider_name=provider_name,
+                model_name=model_name,
+            )
+        return GeminiSemanticVerifier(
+            api_key=settings.gemini_api_key,
+            model=model_name,
+            timeout_seconds=settings.semantic_timeout_seconds,
+        )
+
+    return UnconfiguredSemanticVerifier(
+        provider_name=provider_name,
+        model_name=model_name,
+        reason=(
+            f"Semantic verification is not implemented for provider: {provider_name}"
+        ),
     )

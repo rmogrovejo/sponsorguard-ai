@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from math import isfinite
 from typing import Protocol, cast
 
@@ -7,7 +8,8 @@ from google.genai import errors, types
 from google.genai._gaos.lib import compat_errors
 from pydantic import ValidationError
 
-from app.domain.extraction import BriefExtractionOutput
+from app.domain.semantic import SemanticRequirement, SemanticVerificationOutput
+from app.domain.transcript import TranscriptSegment
 from app.integrations.llm.exceptions import (
     LLMConfigurationError,
     LLMMalformedOutputError,
@@ -20,7 +22,10 @@ from app.integrations.llm.gemini_support import (
     translate_api_error,
     translate_interactions_api_error,
 )
-from app.integrations.llm.prompts import build_brief_extraction_input
+from app.integrations.llm.semantic_prompts import (
+    MAX_SEMANTIC_PROVIDER_INPUT_CHARACTERS,
+    build_semantic_verification_input,
+)
 
 
 class _AsyncInteractionsAPI(Protocol):
@@ -35,8 +40,8 @@ class _GeminiClient(Protocol):
     aio: _AsyncGeminiAPI
 
 
-class GeminiRequirementExtractor:
-    """Gemini Interactions API adapter for SponsorGuard requirement extraction."""
+class GeminiSemanticVerifier:
+    """Gemini adapter for one bounded, index-grounded semantic check."""
 
     def __init__(
         self,
@@ -71,64 +76,74 @@ class GeminiRequirementExtractor:
     def model_name(self) -> str:
         return self._model
 
-    async def extract_structured_requirements(
+    async def verify_semantics(
         self,
-        brief: str,
-    ) -> BriefExtractionOutput:
+        requirement: SemanticRequirement,
+        transcript_segments: Sequence[TranscriptSegment],
+    ) -> SemanticVerificationOutput:
+        supplied_indices = [segment.index for segment in transcript_segments]
+        if not supplied_indices or len(set(supplied_indices)) != len(supplied_indices):
+            raise ValueError(
+                "semantic provider chunks require unique source segment indices"
+            )
+
+        provider_input = build_semantic_verification_input(
+            requirement,
+            transcript_segments,
+        )
+        if len(provider_input) > MAX_SEMANTIC_PROVIDER_INPUT_CHARACTERS:
+            raise LLMConfigurationError(
+                "The semantic verification input exceeds its safe provider bound."
+            )
+
         try:
             interaction = await self._client.aio.interactions.create(
                 model=self._model,
-                input=build_brief_extraction_input(brief),
+                input=provider_input,
                 response_format={
                     "type": "text",
                     "mime_type": "application/json",
-                    "schema": _gemini_response_schema(),
+                    "schema": gemini_response_schema(SemanticVerificationOutput),
                 },
                 timeout=self._timeout_seconds,
             )
-        # google-genai 2.22 uses a separate error hierarchy for the
-        # Interactions API. It is not derived from google.genai.errors.APIError.
         except compat_errors.APIError as error:
             raise translate_interactions_api_error(error) from error
         except compat_errors.ResponseValidationError as error:
             raise LLMMalformedOutputError(
-                "The requirement extraction provider returned malformed output."
+                "The semantic verification provider returned malformed output."
             ) from error
         except errors.APIError as error:
             raise translate_api_error(error) from error
         except (TimeoutError, httpx.TimeoutException) as error:
             raise LLMProviderTimeoutError(
-                "The requirement extraction provider timed out."
+                "The semantic verification provider timed out."
             ) from error
         except httpx.RequestError as error:
             raise LLMProviderUnavailableError(
-                "The requirement extraction provider is unavailable."
+                "The semantic verification provider is unavailable."
             ) from error
 
         output_text = getattr(interaction, "output_text", None)
         if not isinstance(output_text, str) or not output_text.strip():
             raise LLMMalformedOutputError(
-                "The requirement extraction provider returned no structured output."
+                "The semantic verification provider returned no structured output."
             )
 
         try:
-            return BriefExtractionOutput.model_validate_json(output_text)
+            output = SemanticVerificationOutput.model_validate_json(output_text)
         except ValidationError as error:
             if any(item.get("type") == "json_invalid" for item in error.errors()):
                 raise LLMMalformedOutputError(
-                    "The requirement extraction provider returned malformed output."
+                    "The semantic verification provider returned malformed output."
                 ) from error
             raise LLMOutputValidationError(
-                "The requirement extraction provider returned invalid structured output."
+                "The semantic verification provider returned invalid structured output."
             ) from error
 
-
-def _gemini_response_schema() -> dict[str, object]:
-    """Return Gemini's transport schema without weakening domain validation.
-
-    Gemini 3.7 Flash currently rejects ``maxItems`` on Interactions structured
-    output with INVALID_ARGUMENT. The authoritative Pydantic model still
-    enforces MAX_EXTRACTED_REQUIREMENTS after the response is received.
-    """
-
-    return gemini_response_schema(BriefExtractionOutput)
+        allowed_indices = set(supplied_indices)
+        if any(index not in allowed_indices for index in output.segment_indices):
+            raise LLMOutputValidationError(
+                "The semantic verification provider referenced an unsupplied segment."
+            )
+        return output

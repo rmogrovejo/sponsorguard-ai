@@ -65,6 +65,14 @@ def test_provider_uses_versioned_instructions_and_strict_json_schema() -> None:
     assert "required_url" in text_format["format"]["schema"]["$defs"][
         "RequirementType"
     ]["enum"]
+    assert "required_talking_point" in text_format["format"]["schema"]["$defs"][
+        "RequirementType"
+    ]["enum"]
+    assert "forbidden_claim" in text_format["format"]["schema"]["$defs"][
+        "RequirementType"
+    ]["enum"]
+    assert "exact quoted language" in BRIEF_EXTRACTION_INSTRUCTIONS
+    assert "paraphrase" in BRIEF_EXTRACTION_INSTRUCTIONS
 
 
 def test_provider_rejects_arbitrary_prose_instead_of_regex_parsing() -> None:

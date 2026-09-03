@@ -26,7 +26,21 @@ Matching uses Unicode NFKC normalization, Unicode whitespace normalization, and 
 
 `required_url` uses a separate deterministic URL identity rather than phrase matching. Requirement values may be bare domains/paths or HTTP(S) URLs. HTTP and HTTPS are equivalent, one leading `www.` label is ignored, hostname comparison is case-insensitive, IDN hostnames are converted to IDNA form, and one trailing path slash is ignored. The remaining path is case-sensitive and exact. Ports, query strings, and fragments are preserved and must match exactly; they are never discarded or reordered. Only HTTP(S) schemes and valid multi-label domain hostnames are accepted; user information and IP-address hosts are rejected. Transcript URLs are extracted from ordinary text, while the original segment text is retained unchanged as evidence.
 
-Scores are calculated as `((PASS + WARNING × 0.5) / total) × 100` and rounded to two decimal places using round-half-up. Invalid input collections raise `ComplianceInputError`; valid inputs that do not meet requirements produce normal `FAIL` results.
+Scores are calculated from evaluated requirements only and rounded to two decimal places using round-half-up. Invalid input collections raise `ComplianceInputError`; valid inputs that do not meet requirements produce normal `FAIL` results.
+
+## Semantic verification policy
+
+`required_talking_point` and `forbidden_claim` are the only semantic requirement types. They are evaluated through the separate `SemanticVerifier` protocol; the provider never receives or evaluates deterministic requirement types. `required_talking_point` maps provider `match` / `no_match` / `uncertain` decisions to PASS / FAIL / WARNING. `forbidden_claim` maps those decisions to FAIL / PASS / WARNING.
+
+Transcript input is split deterministically into non-overlapping chunks of at most 30 excerpts and a 3,500-character serialized-text budget. An unusually long cue is split into non-overlapping excerpts that retain its original source index. A grounded match can stop evaluation early; a global no-match is returned only after every chunk is checked. If any chunk is uncertain and no later chunk matches, the result is WARNING. Duplicate SRT cue indices cannot be grounded unambiguously, so semantic verification returns NOT_EVALUATED without calling the provider.
+
+The provider returns only a strict decision, supplied source segment indices, and a bounded reason. SponsorGuard validates every index against the exact chunk, then resolves the earliest referenced segment in transcript order to its original timestamp and untouched `TranscriptSegment.text`. Model-generated quote text is neither requested nor accepted as evidence.
+
+Controlled provider failures—including timeouts, rate limits, configuration/authentication errors, malformed output, and invalid grounding—produce `NOT_EVALUATED` with `SEMANTIC_VERIFICATION_UNAVAILABLE` for semantic rules only. The overall API request still succeeds, and deterministic PASS/FAIL findings remain unchanged. Content uncertainty remains WARNING with a weight of 0.5. NOT_EVALUATED requirements are visible in the report but excluded from the compliance-score denominator.
+
+Compliance score measures only evaluated content: `((PASS + WARNING × 0.5) / evaluated) × 100`. Verification coverage is `(evaluated / total) × 100`. Both use two-decimal round-half-up rounding. If no requirements were evaluated, `compliance_score` is `null` and coverage is `0.0`; this is deliberately neither a zero nor perfect content score.
+
+The semantic prompt treats transcript text as untrusted data and explicitly rejects instructions embedded in it. This reduces prompt-injection risk but is not a claim of perfect protection; strict structured validation and source-index grounding remain the enforcement boundaries.
 
 ## HTTP API
 
@@ -67,13 +81,13 @@ Successful response:
   "meta": {
     "provider": "gemini",
     "model": "gemini-3.7-flash",
-    "prompt_version": "1.1",
+    "prompt_version": "2.0",
     "requirement_count": 1
   }
 }
 ```
 
-Only `required_mention`, `required_exact_token`, `forbidden_phrase`, `required_mention_before`, and `required_url` are accepted. The extraction prompt directs providers to use `required_url` only for an explicit URL instruction, never for coupon codes or inferred brand domains. Provider output is untrusted and must pass Pydantic validation. Provenance is retained in `source_text`; self-reported confidence is intentionally omitted because it is not a validation signal.
+The shared extraction schema also supports `required_talking_point` for required meaning that permits paraphrase and `forbidden_claim` for prohibited meaning. Explicit coupon codes, URLs, timing, exact requested wording, and quoted forbidden phrases remain deterministic types. Provider output is untrusted and must pass Pydantic validation. Provenance is retained in `source_text`; self-reported confidence is intentionally omitted because it is not a validation signal.
 
 Gemini is the default provider for the hackathon. Its adapter uses the official `google-genai` Python SDK, the Interactions API, and the JSON Schema derived from `BriefExtractionOutput`. The existing OpenAI adapter remains available. Both implement the same `LLMRequirementExtractor` protocol and reuse the same versioned extraction prompt; route handlers and business services contain no provider-specific branching.
 
@@ -84,6 +98,8 @@ If provider configuration or the provider itself is unavailable, the endpoint re
 ### Analyze compliance
 
 `POST /api/v1/compliance/analyze`
+
+The same endpoint accepts deterministic and semantic requirements. It runs all deterministic rules first, evaluates only the semantic types through the semantic provider, and restores the original requirement order in one report. A controlled semantic-provider failure returns HTTP 200 with a visible NOT_EVALUATED finding rather than discarding otherwise valid deterministic findings.
 
 ```json
 {
@@ -109,10 +125,13 @@ Successful response:
 {
   "summary": {
     "total": 1,
+    "evaluated": 1,
+    "not_evaluated": 0,
     "passed": 1,
     "warnings": 0,
     "failed": 0,
-    "compliance_score": 100.0
+    "compliance_score": 100.0,
+    "verification_coverage": 100.0
   },
   "results": [
     {
@@ -184,6 +203,7 @@ For Gemini development:
 SPONSORGUARD_LLM_PROVIDER=gemini
 SPONSORGUARD_LLM_MODEL=gemini-3.7-flash
 SPONSORGUARD_LLM_TIMEOUT_SECONDS=20
+SPONSORGUARD_SEMANTIC_TIMEOUT_SECONDS=60
 GEMINI_API_KEY=your-gemini-api-key-here
 ```
 
@@ -195,6 +215,7 @@ For the retained OpenAI adapter, set `SPONSORGUARD_LLM_PROVIDER=openai`, an appr
 | `OPENAI_API_KEY` | For OpenAI extraction | Backend-only OpenAI credential. |
 | `SPONSORGUARD_LLM_PROVIDER` | No | `gemini` (default) or `openai`; unsupported names produce a controlled configuration error. |
 | `SPONSORGUARD_LLM_MODEL` | No | Model for the selected provider; Gemini defaults to `gemini-3.7-flash`. |
-| `SPONSORGUARD_LLM_TIMEOUT_SECONDS` | No | Positive provider timeout; defaults to `20`. |
+| `SPONSORGUARD_LLM_TIMEOUT_SECONDS` | No | Brief-extraction timeout; defaults to `20` seconds. |
+| `SPONSORGUARD_SEMANTIC_TIMEOUT_SECONDS` | No | Semantic-verification timeout; defaults to `60` seconds. |
 
-The versioned extraction prompt lives in `app/integrations/llm/prompts.py`. Provider SDK usage is isolated in `app/integrations/llm/gemini_provider.py` and `app/integrations/llm/openai_provider.py`.
+The versioned extraction prompt lives in `app/integrations/llm/prompts.py`; the separate injection-resistant verification prompt lives in `app/integrations/llm/semantic_prompts.py`. Provider SDK usage is isolated under `app/integrations/llm/`, including `gemini_provider.py` for extraction and `gemini_semantic_provider.py` for semantic verification.

@@ -21,6 +21,8 @@ class RequirementType(StrEnum):
     FORBIDDEN_PHRASE = "forbidden_phrase"
     REQUIRED_MENTION_BEFORE = "required_mention_before"
     REQUIRED_URL = "required_url"
+    REQUIRED_TALKING_POINT = "required_talking_point"
+    FORBIDDEN_CLAIM = "forbidden_claim"
 
 
 RequirementId = Annotated[
@@ -34,7 +36,7 @@ RequirementId = Annotated[
 
 
 class SponsorshipRequirement(BaseModel):
-    """Shared immutable fields for deterministic sponsorship requirements."""
+    """Shared immutable fields for supported sponsorship requirements."""
 
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
@@ -95,12 +97,28 @@ class RequiredURLRequirement(SponsorshipRequirement):
             raise ValueError("value must be a valid HTTP(S) campaign URL") from error
 
 
+class RequiredTalkingPointRequirement(SponsorshipRequirement):
+    """A meaning that the creator must communicate, without prescribed wording."""
+
+    type: Literal[RequirementType.REQUIRED_TALKING_POINT] = (
+        RequirementType.REQUIRED_TALKING_POINT
+    )
+
+
+class ForbiddenClaimRequirement(SponsorshipRequirement):
+    """A prohibited meaning that may be communicated through a paraphrase."""
+
+    type: Literal[RequirementType.FORBIDDEN_CLAIM] = RequirementType.FORBIDDEN_CLAIM
+
+
 Requirement = Annotated[
     RequiredMentionRequirement
     | RequiredExactTokenRequirement
     | ForbiddenPhraseRequirement
     | RequiredMentionBeforeRequirement
-    | RequiredURLRequirement,
+    | RequiredURLRequirement
+    | RequiredTalkingPointRequirement
+    | ForbiddenClaimRequirement,
     Field(discriminator="type"),
 ]
 
