@@ -62,6 +62,9 @@ def test_provider_uses_versioned_instructions_and_strict_json_schema() -> None:
     assert isinstance(text_format, dict)
     assert text_format["format"]["type"] == "json_schema"
     assert text_format["format"]["strict"] is True
+    assert "required_url" in text_format["format"]["schema"]["$defs"][
+        "RequirementType"
+    ]["enum"]
 
 
 def test_provider_rejects_arbitrary_prose_instead_of_regex_parsing() -> None:

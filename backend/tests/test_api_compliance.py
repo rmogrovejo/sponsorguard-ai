@@ -165,3 +165,43 @@ def test_openapi_exposes_only_the_versioned_analysis_route_and_health() -> None:
     assert "/health" in paths
     assert ENDPOINT in paths
     assert "post" in paths[ENDPOINT]
+
+
+def test_analyze_endpoint_accepts_required_url_and_serializes_result() -> None:
+    requirement = {
+        "id": "req_campaign_url",
+        "type": "required_url",
+        "description": "Mention campaign URL",
+        "value": "https://www.acmevpn.com/creator/",
+    }
+    transcript = (
+        "5\n00:00:12,500 --> 00:00:15,000\n"
+        "Visit acmevpn.com/creator for the offer."
+    )
+
+    response = client.post(
+        ENDPOINT,
+        json=request_body([requirement], transcript=transcript),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "summary": {
+            "total": 1,
+            "passed": 1,
+            "warnings": 0,
+            "failed": 0,
+            "compliance_score": 100.0,
+        },
+        "results": [
+            {
+                "requirement_id": "req_campaign_url",
+                "status": "pass",
+                "reason_code": "REQUIRED_URL_FOUND",
+                "reason": 'Required URL "acmevpn.com/creator" was found.',
+                "source_segment_index": 5,
+                "timestamp_seconds": 12.5,
+                "evidence": "Visit acmevpn.com/creator for the offer.",
+            }
+        ],
+    }

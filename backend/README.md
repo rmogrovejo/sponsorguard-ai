@@ -24,6 +24,8 @@ Matching uses Unicode NFKC normalization, Unicode whitespace normalization, and 
 
 `required_mention_before` passes when the first matching segment starts at or before the deadline (`timestamp_seconds <= before_seconds`). A later match fails with evidence; a missing match fails without fabricated evidence.
 
+`required_url` uses a separate deterministic URL identity rather than phrase matching. Requirement values may be bare domains/paths or HTTP(S) URLs. HTTP and HTTPS are equivalent, one leading `www.` label is ignored, hostname comparison is case-insensitive, IDN hostnames are converted to IDNA form, and one trailing path slash is ignored. The remaining path is case-sensitive and exact. Ports, query strings, and fragments are preserved and must match exactly; they are never discarded or reordered. Only HTTP(S) schemes and valid multi-label domain hostnames are accepted; user information and IP-address hosts are rejected. Transcript URLs are extracted from ordinary text, while the original segment text is retained unchanged as evidence.
+
 Scores are calculated as `((PASS + WARNING × 0.5) / total) × 100` and rounded to two decimal places using round-half-up. Invalid input collections raise `ComplianceInputError`; valid inputs that do not meet requirements produce normal `FAIL` results.
 
 ## HTTP API
@@ -65,13 +67,13 @@ Successful response:
   "meta": {
     "provider": "gemini",
     "model": "gemini-3.7-flash",
-    "prompt_version": "1.0",
+    "prompt_version": "1.1",
     "requirement_count": 1
   }
 }
 ```
 
-Only `required_mention`, `required_exact_token`, `forbidden_phrase`, and `required_mention_before` are accepted. Provider output is untrusted and must pass Pydantic validation. Provenance is retained in `source_text`; self-reported confidence is intentionally omitted because it is not a validation signal.
+Only `required_mention`, `required_exact_token`, `forbidden_phrase`, `required_mention_before`, and `required_url` are accepted. The extraction prompt directs providers to use `required_url` only for an explicit URL instruction, never for coupon codes or inferred brand domains. Provider output is untrusted and must pass Pydantic validation. Provenance is retained in `source_text`; self-reported confidence is intentionally omitted because it is not a validation signal.
 
 Gemini is the default provider for the hackathon. Its adapter uses the official `google-genai` Python SDK, the Interactions API, and the JSON Schema derived from `BriefExtractionOutput`. The existing OpenAI adapter remains available. Both implement the same `LLMRequirementExtractor` protocol and reuse the same versioned extraction prompt; route handlers and business services contain no provider-specific branching.
 

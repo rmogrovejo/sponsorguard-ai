@@ -105,4 +105,70 @@ describe("requirements workspace", () => {
     ).toBeVisible();
     expect(deadline).toHaveAttribute("aria-invalid", "true");
   });
+
+  it("offers a nontechnical Required URL rule with a URL-focused field", async () => {
+    const user = userEvent.setup();
+    render(<ReviewWorkspace />);
+
+    await user.selectOptions(
+      screen.getByLabelText("Requirement 1 type"),
+      "required_url",
+    );
+
+    expect(screen.getByLabelText("Campaign URL")).toHaveAttribute(
+      "placeholder",
+      "e.g. acmevpn.com/creator",
+    );
+    expect(
+      screen.queryByLabelText("Requirement 1 deadline in seconds"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("allows a manually created URL requirement to be edited", async () => {
+    const user = userEvent.setup();
+    render(<ReviewWorkspace />);
+    await user.selectOptions(
+      screen.getByLabelText("Requirement 1 type"),
+      "required_url",
+    );
+    const campaignUrl = screen.getByLabelText("Campaign URL");
+
+    await user.type(campaignUrl, "acmevpn.com/creator");
+    await user.clear(campaignUrl);
+    await user.type(campaignUrl, "https://www.acmevpn.com/partner/");
+
+    expect(campaignUrl).toHaveValue("https://www.acmevpn.com/partner/");
+  });
+
+  it("associates an invalid URL message with the campaign URL field", async () => {
+    const user = userEvent.setup();
+    render(<ReviewWorkspace />);
+    await user.type(
+      screen.getByLabelText("Campaign or review name"),
+      "AcmeVPN campaign",
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Requirement 1 type"),
+      "required_url",
+    );
+    await user.type(
+      screen.getByLabelText("Requirement 1 description"),
+      "Mention campaign URL",
+    );
+    const campaignUrl = screen.getByLabelText("Campaign URL");
+    await user.type(campaignUrl, "ftp://not valid");
+    await user.type(screen.getByLabelText("SRT transcript"), "not empty");
+
+    await user.click(screen.getByRole("button", { name: "Analyze review" }));
+
+    expect(
+      await screen.findByText(
+        "Enter a valid campaign URL such as acmevpn.com/creator.",
+      ),
+    ).toBeVisible();
+    expect(campaignUrl).toHaveAttribute("aria-invalid", "true");
+    expect(campaignUrl).toHaveAccessibleDescription(
+      "Enter a valid campaign URL such as acmevpn.com/creator.",
+    );
+  });
 });

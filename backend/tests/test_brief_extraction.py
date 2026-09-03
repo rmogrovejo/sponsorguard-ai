@@ -71,7 +71,7 @@ def test_valid_simple_extraction_maps_to_domain_requirement() -> None:
     }
     assert report.provider == "test-provider"
     assert report.model == "test-model"
-    assert report.prompt_version == "1.0"
+    assert report.prompt_version == "1.1"
 
 
 def test_multiple_supported_rule_types_preserve_provider_order() -> None:
@@ -96,15 +96,60 @@ def test_multiple_supported_rule_types_preserve_provider_order() -> None:
                 before_seconds=60,
                 source_text="Mention AcmeVPN in the first 60 seconds.",
             ),
+            candidate(
+                RequirementType.REQUIRED_URL,
+                description="Mention the campaign URL",
+                value="https://www.acmevpn.com/creator/",
+                source_text="Tell viewers to visit acmevpn.com/creator.",
+            ),
         )
     )
 
-    report = run_extract(provider, ids=iter(f"req_ai_{i}" for i in range(4)))
+    report = run_extract(provider, ids=iter(f"req_ai_{i}" for i in range(5)))
 
     assert [item.requirement.type for item in report.requirements] == list(
         RequirementType
     )
     assert report.requirements[3].requirement.before_seconds == 60
+    assert report.requirements[4].requirement.value == "acmevpn.com/creator"
+
+
+def test_explicit_url_extraction_preserves_source_provenance() -> None:
+    provider = FakeProvider(
+        output(
+            candidate(
+                RequirementType.REQUIRED_URL,
+                description="Mention the campaign URL",
+                value="https://www.acmevpn.com/creator/",
+                source_text="Tell viewers to visit acmevpn.com/creator.",
+            )
+        )
+    )
+
+    extracted = run_extract(provider).requirements[0]
+
+    assert extracted.requirement.type is RequirementType.REQUIRED_URL
+    assert extracted.requirement.value == "acmevpn.com/creator"
+    assert extracted.source_text == "Tell viewers to visit acmevpn.com/creator."
+
+
+def test_coupon_remains_exact_token_and_no_url_is_added() -> None:
+    provider = FakeProvider(
+        output(
+            candidate(
+                RequirementType.REQUIRED_EXACT_TOKEN,
+                description="Use the creator code",
+                value="CREATOR25",
+                source_text="Use code CREATOR25.",
+            )
+        )
+    )
+
+    report = run_extract(provider)
+
+    assert len(report.requirements) == 1
+    assert report.requirements[0].requirement.type is RequirementType.REQUIRED_EXACT_TOKEN
+    assert report.requirements[0].requirement.value == "CREATOR25"
 
 
 def test_exact_coupon_and_source_provenance_are_preserved() -> None:

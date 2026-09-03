@@ -3,6 +3,7 @@ from collections.abc import Sequence
 
 from app.domain.text import normalize_for_matching
 from app.domain.transcript import TranscriptSegment
+from app.domain.urls import extract_normalized_urls, normalize_campaign_url
 
 
 def contains_bounded_match(text: str, target: str) -> bool:
@@ -31,5 +32,18 @@ def find_earliest_match(
     matcher = _compile_bounded_matcher(target)
     for segment in transcript_segments:
         if matcher.search(normalize_for_matching(segment.text)) is not None:
+            return segment
+    return None
+
+
+def find_earliest_url_match(
+    transcript_segments: Sequence[TranscriptSegment],
+    target: str,
+) -> TranscriptSegment | None:
+    """Return the first segment containing the same normalized URL identity."""
+
+    normalized_target = normalize_campaign_url(target)
+    for segment in transcript_segments:
+        if normalized_target in extract_normalized_urls(segment.text):
             return segment
     return None

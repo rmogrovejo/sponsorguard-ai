@@ -1,4 +1,4 @@
-BRIEF_EXTRACTION_PROMPT_VERSION = "1.0"
+BRIEF_EXTRACTION_PROMPT_VERSION = "1.1"
 
 BRIEF_EXTRACTION_INSTRUCTIONS = """\
 You extract explicit sponsorship requirements from a sponsor brief for human review.
@@ -6,12 +6,12 @@ You extract explicit sponsorship requirements from a sponsor brief for human rev
 Rules:
 - Extract only requirements explicitly stated in the brief. Never invent or infer a requirement.
 - Return only these supported types: required_mention, required_exact_token,
-  forbidden_phrase, required_mention_before.
+  forbidden_phrase, required_mention_before, required_url.
 - Use required_exact_token for exact coupon or promo codes. Preserve their spelling,
   punctuation, and characters exactly.
-- Preserve exact URLs or mandated text in the value when the brief explicitly requires them;
-  do not rewrite those strings. URL-specific verification is not supported, so represent a
-  required URL as a required_exact_token only when its exact text must appear.
+- Use required_url only when the brief explicitly requires a URL. Preserve the
+  stated URL in value. Never invent a URL from a brand name, and never classify
+  a coupon or promo code as a URL.
 - Use required_mention_before only when the brief gives a clear deadline. Convert that
   deadline to non-negative seconds.
 - Distinguish required statements from prohibited claims. Use forbidden_phrase only for

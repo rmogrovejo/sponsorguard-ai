@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validat
 
 from app.domain.requirements import Requirement, RequirementType
 from app.domain.text import normalize_unicode_whitespace
+from app.domain.urls import CampaignURLValidationError, normalize_campaign_url
 
 
 MAX_EXTRACTED_REQUIREMENTS = 50
@@ -29,6 +30,16 @@ class BriefRequirementCandidate(BaseModel):
         if not normalized:
             raise ValueError(f"{info.field_name} cannot be blank")
         return normalized
+
+    @field_validator("value")
+    @classmethod
+    def validate_url_value(cls, value: str, info: ValidationInfo) -> str:
+        if info.data.get("type") is not RequirementType.REQUIRED_URL:
+            return value
+        try:
+            return normalize_campaign_url(value)
+        except CampaignURLValidationError as error:
+            raise ValueError("value must be a valid HTTP(S) campaign URL") from error
 
     @field_validator("source_text", mode="before")
     @classmethod

@@ -109,6 +109,11 @@ def test_valid_gemini_output_uses_interactions_structured_schema() -> None:
     assert response_format["type"] == "text"
     assert response_format["mime_type"] == "application/json"
     assert isinstance(response_format["schema"], dict)
+    assert "required_url" in response_format["schema"]["$defs"]["RequirementType"][
+        "enum"
+    ]
+    assert "Never invent a URL" in BRIEF_EXTRACTION_INSTRUCTIONS
+    assert "never classify" in BRIEF_EXTRACTION_INSTRUCTIONS
     domain_schema = BriefExtractionOutput.model_json_schema()
     assert domain_schema["properties"]["requirements"]["maxItems"] == 50
     assert "maxItems" not in response_format["schema"]["properties"]["requirements"]
@@ -323,7 +328,7 @@ def test_existing_extraction_endpoint_accepts_gemini_provider_boundary() -> None
     assert body["meta"] == {
         "provider": "gemini",
         "model": "gemini-3.7-flash",
-        "prompt_version": "1.0",
+        "prompt_version": "1.1",
         "requirement_count": 1,
     }
 

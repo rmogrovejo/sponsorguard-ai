@@ -2,7 +2,8 @@ export type RequirementType =
   | "required_mention"
   | "required_exact_token"
   | "forbidden_phrase"
-  | "required_mention_before";
+  | "required_mention_before"
+  | "required_url";
 
 export interface RequirementDraft {
   id: string;

@@ -9,6 +9,7 @@ from app.domain.requirements import (
     RequiredExactTokenRequirement,
     RequiredMentionBeforeRequirement,
     RequiredMentionRequirement,
+    RequiredURLRequirement,
     Requirement,
     RequirementType,
     SponsorshipRequirement,
@@ -19,6 +20,7 @@ from app.services.checkers import (
     check_required_exact_token,
     check_required_mention,
     check_required_mention_before,
+    check_required_url,
 )
 from app.services.scoring import summarize_results
 
@@ -59,6 +61,7 @@ _CHECKERS: MappingProxyType[RequirementType, Checker] = MappingProxyType(
             Checker,
             check_required_mention_before,
         ),
+        RequirementType.REQUIRED_URL: cast(Checker, check_required_url),
     }
 )
 
@@ -67,6 +70,7 @@ _SUPPORTED_REQUIREMENT_MODELS = (
     RequiredExactTokenRequirement,
     ForbiddenPhraseRequirement,
     RequiredMentionBeforeRequirement,
+    RequiredURLRequirement,
 )
 
 

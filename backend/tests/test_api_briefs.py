@@ -121,7 +121,7 @@ def test_valid_brief_returns_typed_requirements_with_provenance_and_meta() -> No
     assert body["meta"] == {
         "provider": "stub-provider",
         "model": "stub-model",
-        "prompt_version": "1.0",
+        "prompt_version": "1.1",
         "requirement_count": 3,
     }
     assert all(item["id"].startswith("req_ai_") for item in body["requirements"])
@@ -230,6 +230,33 @@ def test_request_id_is_preserved_on_extraction_response() -> None:
 
     assert response.status_code == 200
     assert response.headers["X-Request-ID"] == request_id
+
+
+def test_extraction_endpoint_serializes_required_url_with_provenance() -> None:
+    provider = StubProvider(
+        result=BriefExtractionOutput(
+            requirements=(
+                BriefRequirementCandidate(
+                    type=RequirementType.REQUIRED_URL,
+                    description="Mention the campaign URL",
+                    value="https://www.acmevpn.com/creator/",
+                    before_seconds=None,
+                    source_text="Tell viewers to visit acmevpn.com/creator.",
+                ),
+            )
+        )
+    )
+
+    response = make_client(provider).post(
+        ENDPOINT,
+        json={"brief": "Tell viewers to visit acmevpn.com/creator."},
+    )
+
+    assert response.status_code == 200
+    requirement = response.json()["requirements"][0]
+    assert requirement["type"] == "required_url"
+    assert requirement["value"] == "acmevpn.com/creator"
+    assert requirement["source_text"] == "Tell viewers to visit acmevpn.com/creator."
 
 
 def test_invalid_request_id_is_replaced_on_provider_error() -> None:

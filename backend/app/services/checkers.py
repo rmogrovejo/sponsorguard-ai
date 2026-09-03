@@ -10,10 +10,11 @@ from app.domain.requirements import (
     RequiredExactTokenRequirement,
     RequiredMentionBeforeRequirement,
     RequiredMentionRequirement,
+    RequiredURLRequirement,
     SponsorshipRequirement,
 )
 from app.domain.transcript import TranscriptSegment
-from app.services.matchers import find_earliest_match
+from app.services.matchers import find_earliest_match, find_earliest_url_match
 
 
 def check_required_mention(
@@ -118,6 +119,28 @@ def check_forbidden_phrase(
         status=ComplianceStatus.FAIL,
         reason_code=ComplianceReasonCode.FORBIDDEN_PHRASE_FOUND,
         reason=f'Forbidden phrase "{requirement.value}" was found.',
+        segment=match,
+    )
+
+
+def check_required_url(
+    requirement: RequiredURLRequirement,
+    transcript_segments: Sequence[TranscriptSegment],
+) -> ComplianceResult:
+    match = find_earliest_url_match(transcript_segments, requirement.value)
+    if match is None:
+        return _result_without_evidence(
+            requirement,
+            status=ComplianceStatus.FAIL,
+            reason_code=ComplianceReasonCode.REQUIRED_URL_MISSING,
+            reason=f'Required URL "{requirement.value}" was not found.',
+        )
+
+    return _result_with_evidence(
+        requirement,
+        status=ComplianceStatus.PASS,
+        reason_code=ComplianceReasonCode.REQUIRED_URL_FOUND,
+        reason=f'Required URL "{requirement.value}" was found.',
         segment=match,
     )
 

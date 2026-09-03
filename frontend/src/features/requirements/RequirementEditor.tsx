@@ -114,8 +114,11 @@ export function RequirementEditor({
             placeholder={
               requirement.type === "required_exact_token"
                 ? "e.g. CREATOR25"
-                : "e.g. AcmeVPN"
+                : requirement.type === "required_url"
+                  ? "e.g. acmevpn.com/creator"
+                  : "e.g. AcmeVPN"
             }
+            inputMode={requirement.type === "required_url" ? "url" : "text"}
             onChange={(event) =>
               onChange({ ...requirement, value: event.target.value })
             }

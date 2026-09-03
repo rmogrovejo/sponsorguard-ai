@@ -17,6 +17,11 @@ export const REQUIREMENT_OPTIONS: ReadonlyArray<{
     targetLabel: "Exact token",
   },
   {
+    value: "required_url",
+    label: "Required URL",
+    targetLabel: "Campaign URL",
+  },
+  {
     value: "forbidden_phrase",
     label: "Forbidden phrase",
     targetLabel: "Forbidden phrase",

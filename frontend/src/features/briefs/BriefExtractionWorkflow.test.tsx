@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -32,7 +32,7 @@ function extractionResponse() {
     meta: {
       provider: "test-provider",
       model: "test-model",
-      prompt_version: "1.0",
+      prompt_version: "1.1",
       requirement_count: 2,
     },
   };
@@ -46,6 +46,27 @@ async function enterBrief(value = BRIEF) {
 
 function successfulExtractionFetch() {
   return vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(extractionResponse()));
+}
+
+function urlExtractionResponse() {
+  return {
+    requirements: [
+      {
+        id: "req_ai_url",
+        type: "required_url",
+        description: "Mention the campaign URL",
+        value: "acmevpn.com/creator",
+        before_seconds: null,
+        source_text: "Mention acmevpn.com/creator",
+      },
+    ],
+    meta: {
+      provider: "test-provider",
+      model: "test-model",
+      prompt_version: "1.1",
+      requirement_count: 1,
+    },
+  };
 }
 
 describe("sponsor brief extraction workflow", () => {
@@ -288,6 +309,47 @@ describe("sponsor brief extraction workflow", () => {
     expect(screen.getByLabelText("Campaign document")).toHaveAttribute(
       "aria-describedby",
       "sponsor-brief-note sponsor-brief-status",
+    );
+  });
+
+  it("stages an extracted URL with its source provenance", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(urlExtractionResponse())),
+    );
+    render(<ReviewWorkspace />);
+    const user = await enterBrief("Mention acmevpn.com/creator.");
+
+    await user.click(screen.getByRole("button", { name: "Extract requirements" }));
+
+    const stagedReview = (await screen.findByRole("heading", {
+      name: "Extracted checklist",
+    })).closest(".extraction-review");
+    expect(stagedReview).not.toBeNull();
+    const staged = within(stagedReview as HTMLElement);
+    expect(staged.getByText("Required URL")).toBeVisible();
+    expect(staged.getByText("acmevpn.com/creator")).toBeVisible();
+    expect(staged.getByText("“Mention acmevpn.com/creator”")).toBeVisible();
+  });
+
+  it("appends an extracted URL into the shared requirement editor", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(urlExtractionResponse())),
+    );
+    render(<ReviewWorkspace />);
+    const user = await enterBrief("Mention acmevpn.com/creator.");
+    await user.click(screen.getByRole("button", { name: "Extract requirements" }));
+
+    await user.click(
+      await screen.findByRole("button", { name: "Append 1 to checklist" }),
+    );
+
+    expect(screen.getByLabelText("Requirement 2 type")).toHaveValue(
+      "required_url",
+    );
+    expect(screen.getByLabelText("Requirement 2 target value")).toHaveValue(
+      "acmevpn.com/creator",
     );
   });
 });

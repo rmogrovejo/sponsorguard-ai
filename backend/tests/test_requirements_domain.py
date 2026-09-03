@@ -8,6 +8,7 @@ from app.domain.requirements import (
     RequiredExactTokenRequirement,
     RequiredMentionBeforeRequirement,
     RequiredMentionRequirement,
+    RequiredURLRequirement,
     RequirementType,
     validate_requirement,
 )
@@ -36,6 +37,11 @@ def test_validates_each_supported_requirement_type() -> None:
             value="AcmeVPN",
             before_seconds=60,
         ),
+        RequiredURLRequirement(
+            id="req_campaign_url",
+            description="Mention campaign URL",
+            value="https://www.acmevpn.com/creator/",
+        ),
     ]
 
     assert [item.model_dump(mode="json") for item in requirements] == [
@@ -63,6 +69,12 @@ def test_validates_each_supported_requirement_type() -> None:
             "description": "Mention AcmeVPN before 01:00",
             "value": "AcmeVPN",
             "before_seconds": 60.0,
+        },
+        {
+            "id": "req_campaign_url",
+            "type": "required_url",
+            "description": "Mention campaign URL",
+            "value": "acmevpn.com/creator",
         },
     ]
 

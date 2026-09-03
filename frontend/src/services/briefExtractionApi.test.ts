@@ -21,7 +21,7 @@ const RESPONSE = {
   meta: {
     provider: "test-provider",
     model: "test-model",
-    prompt_version: "1.0",
+    prompt_version: "1.1",
     requirement_count: 1,
   },
 };

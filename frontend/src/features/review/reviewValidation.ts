@@ -49,6 +49,46 @@ function toPayload(requirement: RequirementDraft): RequirementPayload {
   return { ...base, type: requirement.type };
 }
 
+function isValidCampaignUrl(value: string): boolean {
+  const candidate = value.trim();
+  if (!candidate || /\s/u.test(candidate)) return false;
+
+  const hasExplicitScheme = candidate.includes("://");
+  if (
+    hasExplicitScheme &&
+    !candidate.toLowerCase().startsWith("http://") &&
+    !candidate.toLowerCase().startsWith("https://")
+  ) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(
+      hasExplicitScheme ? candidate : `https://${candidate}`,
+    );
+    if (
+      (parsed.protocol !== "http:" && parsed.protocol !== "https:") ||
+      parsed.username ||
+      parsed.password ||
+      !parsed.hostname.includes(".") ||
+      /^\[|\]$/u.test(parsed.hostname) ||
+      /^\d+(?:\.\d+){3}$/u.test(parsed.hostname)
+    ) {
+      return false;
+    }
+
+    const labels = parsed.hostname.toLowerCase().split(".");
+    return (
+      labels.at(-1)!.length >= 2 &&
+      labels.every((label) =>
+        /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u.test(label),
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function validateReviewDraft(draft: ReviewDraft): ReviewValidationResult {
   const errors: ReviewValidationErrors = { requirementFields: {} };
 
@@ -68,7 +108,16 @@ export function validateReviewDraft(draft: ReviewDraft): ReviewValidationResult 
     }
 
     if (!requirement.value.trim()) {
-      fieldErrors.value = "Enter the phrase or token to check.";
+      fieldErrors.value =
+        requirement.type === "required_url"
+          ? "Enter a campaign URL."
+          : "Enter the phrase or token to check.";
+    } else if (
+      requirement.type === "required_url" &&
+      !isValidCampaignUrl(requirement.value)
+    ) {
+      fieldErrors.value =
+        "Enter a valid campaign URL such as acmevpn.com/creator.";
     }
 
     if (requirement.type === "required_mention_before") {

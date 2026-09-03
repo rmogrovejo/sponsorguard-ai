@@ -12,6 +12,7 @@ from pydantic import (
 )
 
 from app.domain.text import normalize_unicode_whitespace
+from app.domain.urls import CampaignURLValidationError, normalize_campaign_url
 
 
 class RequirementType(StrEnum):
@@ -19,6 +20,7 @@ class RequirementType(StrEnum):
     REQUIRED_EXACT_TOKEN = "required_exact_token"
     FORBIDDEN_PHRASE = "forbidden_phrase"
     REQUIRED_MENTION_BEFORE = "required_mention_before"
+    REQUIRED_URL = "required_url"
 
 
 RequirementId = Annotated[
@@ -81,11 +83,24 @@ class RequiredMentionBeforeRequirement(SponsorshipRequirement):
         return float(value)
 
 
+class RequiredURLRequirement(SponsorshipRequirement):
+    type: Literal[RequirementType.REQUIRED_URL] = RequirementType.REQUIRED_URL
+
+    @field_validator("value")
+    @classmethod
+    def validate_and_normalize_url(cls, value: str) -> str:
+        try:
+            return normalize_campaign_url(value)
+        except CampaignURLValidationError as error:
+            raise ValueError("value must be a valid HTTP(S) campaign URL") from error
+
+
 Requirement = Annotated[
     RequiredMentionRequirement
     | RequiredExactTokenRequirement
     | ForbiddenPhraseRequirement
-    | RequiredMentionBeforeRequirement,
+    | RequiredMentionBeforeRequirement
+    | RequiredURLRequirement,
     Field(discriminator="type"),
 ]
 

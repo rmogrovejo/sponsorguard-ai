@@ -49,7 +49,8 @@ function isRequirementType(value: unknown): value is RequirementType {
     value === "required_mention" ||
     value === "required_exact_token" ||
     value === "forbidden_phrase" ||
-    value === "required_mention_before"
+    value === "required_mention_before" ||
+    value === "required_url"
   );
 }
 
