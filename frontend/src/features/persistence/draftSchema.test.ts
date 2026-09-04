@@ -70,7 +70,7 @@ describe("draft schema validation", () => {
     expect(validateCreatorDraft(oversizedName)).toBe("oversized");
   });
 
-  it("does not treat an empty default workspace as meaningful", () => {
+  it("does not treat an empty workspace as meaningful", () => {
     expect(isMeaningfulDraft(sampleDraft({
       activeModule: "shortform",
       sponsoredContent: {
@@ -82,5 +82,41 @@ describe("draft schema validation", () => {
       },
       shortForm: { platform: "tiktok", hadVideoSelected: false },
     }))).toBe(false);
+  });
+
+  it("treats a non-default Short-Form platform as meaningful", () => {
+    expect(
+      isMeaningfulDraft(
+        sampleDraft({
+          sponsoredContent: {
+            campaignName: "",
+            sponsorBrief: "",
+            requirements: [],
+            transcriptContent: "",
+            transcriptFileName: null,
+          },
+          shortForm: { platform: "instagram_reels", hadVideoSelected: false },
+        }),
+        "tiktok",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not treat the configured default platform as meaningful by itself", () => {
+    expect(
+      isMeaningfulDraft(
+        sampleDraft({
+          sponsoredContent: {
+            campaignName: "",
+            sponsorBrief: "",
+            requirements: [],
+            transcriptContent: "",
+            transcriptFileName: null,
+          },
+          shortForm: { platform: "instagram_reels", hadVideoSelected: false },
+        }),
+        "instagram_reels",
+      ),
+    ).toBe(false);
   });
 });

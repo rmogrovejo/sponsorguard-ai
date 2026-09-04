@@ -54,6 +54,12 @@ select:disabled,
   outline-offset: 3px;
 }
 
+:root[data-theme="dark"] :focus-visible {
+  outline: 2px solid var(--color-signal);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 1px var(--color-paper);
+}
+
 h1,
 h2,
 h3,
@@ -131,7 +137,7 @@ dd {
 }
 
 .product-nav button[aria-current="page"] {
-  border-color: var(--color-ink);
+  border-color: var(--color-signal);
   background: var(--color-paper-light);
 }
 
@@ -142,7 +148,8 @@ dd {
   font-family: var(--font-editorial);
   font-size: 1.05rem;
   font-weight: 400;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .product-nav button span,
@@ -218,12 +225,27 @@ dd {
   height: 2rem;
   display: grid;
   place-items: center;
-  border: 1px solid var(--color-ink);
+  flex: 0 0 2rem;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-precise);
+  background: var(--color-paper-light);
+  color: var(--color-ink);
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.06em;
+}
+
+.wordmark__mark--image {
+  padding: 0.12rem;
+}
+
+.wordmark__mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 .wordmark__name {
@@ -241,6 +263,12 @@ dd {
   font-size: 0.72em;
   font-weight: 800;
   letter-spacing: 0.04em;
+}
+
+.masthead__tagline {
+  min-width: 0;
+  max-width: 28rem;
+  overflow-wrap: anywhere;
 }
 
 .masthead__meta {

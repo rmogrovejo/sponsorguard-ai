@@ -1,5 +1,5 @@
 import type { RequirementDraft, RequirementType } from "../../types/compliance";
-import type { ProductModule } from "../shell/productModules";
+import type { ContentModule } from "../shell/productModules";
 import type { ShortFormPlatform } from "../../types/shortform";
 import {
   DRAFT_VERSION,
@@ -36,7 +36,7 @@ const PLATFORMS: ReadonlySet<ShortFormPlatform> = new Set([
   "instagram_reels",
 ]);
 
-const MODULES: ReadonlySet<ProductModule> = new Set(["shortform", "sponsored"]);
+const MODULES: ReadonlySet<ContentModule> = new Set(["shortform", "sponsored"]);
 
 const DRAFT_KEYS = new Set(["version", "savedAt", "activeModule", "sponsoredContent", "shortForm"]);
 const SPONSORED_KEYS = new Set([
@@ -79,12 +79,12 @@ export interface ShortFormDraft {
 export interface CreatorDraft {
   version: 1;
   savedAt: string;
-  activeModule: ProductModule;
+  activeModule: ContentModule;
   sponsoredContent: SponsoredContentDraft;
   shortForm: ShortFormDraft;
 }
 
-export function emptyDraft(): CreatorDraft {
+export function emptyDraft(defaultPlatform: ShortFormPlatform = "tiktok"): CreatorDraft {
   return {
     version: DRAFT_VERSION,
     savedAt: new Date().toISOString(),
@@ -97,7 +97,7 @@ export function emptyDraft(): CreatorDraft {
       transcriptFileName: null,
     },
     shortForm: {
-      platform: "tiktok",
+      platform: defaultPlatform,
       hadVideoSelected: false,
     },
   };
@@ -112,7 +112,10 @@ export function canonicalDraftPayload(draft: CreatorDraft): string {
   });
 }
 
-export function isMeaningfulDraft(draft: CreatorDraft): boolean {
+export function isMeaningfulDraft(
+  draft: CreatorDraft,
+  defaultPlatform: ShortFormPlatform = "tiktok",
+): boolean {
   const sponsored = draft.sponsoredContent;
   if (sponsored.campaignName.trim()) return true;
   if (sponsored.sponsorBrief.trim()) return true;
@@ -121,7 +124,7 @@ export function isMeaningfulDraft(draft: CreatorDraft): boolean {
   if (sponsored.requirements.some((item) => item.description.trim() || item.value.trim())) {
     return true;
   }
-  if (draft.shortForm.platform !== "tiktok") return true;
+  if (draft.shortForm.platform !== defaultPlatform) return true;
   if (draft.shortForm.hadVideoSelected) return true;
   return false;
 }
@@ -166,7 +169,7 @@ export function validateCreatorDraft(value: unknown): CreatorDraft | DraftParseF
   if (typeof value.savedAt !== "string" || !value.savedAt || value.savedAt.length > 40) {
     return "invalid_schema";
   }
-  if (typeof value.activeModule !== "string" || !MODULES.has(value.activeModule as ProductModule)) {
+  if (typeof value.activeModule !== "string" || !MODULES.has(value.activeModule as ContentModule)) {
     return "invalid_schema";
   }
   const sponsored = validateSponsored(value.sponsoredContent);
@@ -176,7 +179,7 @@ export function validateCreatorDraft(value: unknown): CreatorDraft | DraftParseF
   const draft: CreatorDraft = {
     version: 1,
     savedAt: value.savedAt,
-    activeModule: value.activeModule as ProductModule,
+    activeModule: value.activeModule as ContentModule,
     sponsoredContent: sponsored,
     shortForm,
   };

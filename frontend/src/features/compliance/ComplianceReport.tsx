@@ -1,22 +1,25 @@
 import type { RefObject } from "react";
 
 import type { ComplianceStatus } from "../../types/compliance";
+import type { MessageKey } from "../../i18n/translations";
+import { useTranslation } from "../../i18n/useTranslation";
 import { formatTimestamp } from "../../utils/timestamp";
 import { FixRecommendation } from "../fixes/FixRecommendation";
 import { useFixGeneration } from "../fixes/useFixGeneration";
 import type { ReviewReportSnapshot } from "../review/useComplianceAnalysis";
 import { isSemanticRequirementType } from "../requirements/requirementModel";
+import { localizeComplianceReason } from "./localizeReason";
 
 interface ComplianceReportProps {
   report: ReviewReportSnapshot;
   headingRef: RefObject<HTMLHeadingElement | null>;
 }
 
-const STATUS_LABELS: Record<ComplianceStatus, string> = {
-  pass: "Pass",
-  warning: "Warning",
-  fail: "Fail",
-  not_evaluated: "Not evaluated",
+const STATUS_KEYS: Record<ComplianceStatus, MessageKey> = {
+  pass: "sponsored.pass",
+  warning: "sponsored.warning",
+  fail: "sponsored.fail",
+  not_evaluated: "sponsored.statusNotEvaluated",
 };
 
 function formatScore(score: number): string {
@@ -27,6 +30,7 @@ export function ComplianceReport({
   report,
   headingRef,
 }: ComplianceReportProps) {
+  const { t } = useTranslation();
   const { summary, results } = report.response;
   const fixes = useFixGeneration(report);
 
@@ -34,14 +38,11 @@ export function ComplianceReport({
     <section className="compliance-report" aria-labelledby="report-heading">
       <header className="report-header">
         <div className="report-header__copy">
-          <p className="mono-label">COMPLIANCE REPORT / FINAL</p>
+          <p className="mono-label">{t("sponsored.reportKicker")}</p>
           <h2 id="report-heading" ref={headingRef} tabIndex={-1}>
             {report.campaignName}
           </h2>
-          <p>
-            Grounded pre-publish findings from the submitted requirements and
-            transcript.
-          </p>
+          <p>{t("sponsored.reportBody")}</p>
         </div>
 
         <div className="report-metrics">
@@ -49,64 +50,68 @@ export function ComplianceReport({
             className="score-block"
             aria-label={
               summary.compliance_score === null
-                ? "Compliance score unavailable"
-                : `Compliance score ${formatScore(summary.compliance_score)} out of 100`
+                ? t("sponsored.scoreUnavailable")
+                : t("sponsored.scoreAria", { score: formatScore(summary.compliance_score) })
             }
           >
-            <span className="mono-label">COMPLIANCE SCORE</span>
+            <span className="mono-label">{t("sponsored.score")}</span>
             <strong>
               {summary.compliance_score === null
                 ? "—"
                 : formatScore(summary.compliance_score)}
             </strong>
             <span>
-              {summary.compliance_score === null ? "not scored" : "/ 100"}
+              {summary.compliance_score === null ? t("shortform.notScored") : "/ 100"}
             </span>
           </div>
           <div
             className="coverage-block"
-            aria-label={`Verification coverage ${formatScore(summary.verification_coverage)} percent; ${summary.evaluated} of ${summary.total} evaluated`}
+            aria-label={t("sponsored.coverageAria", {
+              coverage: formatScore(summary.verification_coverage),
+              evaluated: summary.evaluated,
+              total: summary.total,
+            })}
           >
-            <span className="mono-label">VERIFICATION COVERAGE</span>
+            <span className="mono-label">{t("sponsored.coverage")}</span>
             <strong>
               {summary.evaluated} / {summary.total}
             </strong>
-            <span>evaluated</span>
+            <span>{t("sponsored.evaluated")}</span>
           </div>
         </div>
       </header>
 
-      <dl className="summary-strip" aria-label="Compliance totals">
+      <dl className="summary-strip" aria-label={t("sponsored.totals")}>
         <div>
-          <dt>Total checks</dt>
+          <dt>{t("sponsored.totalChecks")}</dt>
           <dd>{summary.total}</dd>
         </div>
         <div className="summary-strip__pass">
-          <dt>Passed</dt>
+          <dt>{t("sponsored.passed")}</dt>
           <dd>{summary.passed}</dd>
         </div>
         <div className="summary-strip__warning">
-          <dt>Warnings</dt>
+          <dt>{t("sponsored.warnings")}</dt>
           <dd>{summary.warnings}</dd>
         </div>
         <div className="summary-strip__fail">
-          <dt>Failed</dt>
+          <dt>{t("sponsored.failed")}</dt>
           <dd>{summary.failed}</dd>
         </div>
         <div className="summary-strip__not-evaluated">
-          <dt>Not evaluated</dt>
+          <dt>{t("sponsored.notEvaluated")}</dt>
           <dd>{summary.not_evaluated}</dd>
         </div>
       </dl>
 
       <div className="findings-heading">
-        <p className="mono-label">FINDINGS REGISTER</p>
-        <span>{results.length} evaluated requirements</span>
+        <p className="mono-label">{t("sponsored.findings")}</p>
+        <span>{t("sponsored.evaluatedReqs", { count: results.length })}</span>
       </div>
 
       <ol className="finding-list">
         {results.map((result, index) => {
-          const statusLabel = STATUS_LABELS[result.status];
+          const statusLabel = t(STATUS_KEYS[result.status]);
           const timestamp =
             result.timestamp_seconds === null
               ? null
@@ -115,6 +120,11 @@ export function ComplianceReport({
           const isSemantic =
             requirementType !== undefined &&
             isSemanticRequirementType(requirementType);
+          const reasonCopy = localizeComplianceReason(
+            result,
+            report.requirementsById[result.requirement_id],
+            t,
+          );
 
           return (
             <li key={result.requirement_id} className="finding">
@@ -123,15 +133,15 @@ export function ComplianceReport({
                   {String(index + 1).padStart(2, "0")}
                 </span>
                 <div className="finding__title">
-                  <p className="mono-label">REQUIREMENT</p>
+                  <p className="mono-label">{t("sponsored.requirement")}</p>
                   <h3>
                     {report.requirementDescriptions[result.requirement_id] ??
-                      "Sponsorship requirement"}
+                      t("sponsored.fallbackRequirement")}
                   </h3>
                 </div>
                 <span
                   className={`status-label status-label--${result.status}`}
-                  aria-label={`Compliance status: ${statusLabel}`}
+                  aria-label={t("sponsored.statusAria", { status: statusLabel })}
                 >
                   {statusLabel}
                 </span>
@@ -140,21 +150,21 @@ export function ComplianceReport({
               <div className="finding__body">
                 {isSemantic && (
                   <p className="finding__verification mono-label">
-                    VERIFICATION / SEMANTIC
+                    {t("sponsored.verificationSemantic")}
                   </p>
                 )}
-                <p className="finding__reason">{result.reason}</p>
+                <p className="finding__reason">{reasonCopy.lead}</p>
 
                 {result.evidence !== null && timestamp !== null && (
                   <figure className="evidence-block">
                     <figcaption>
-                      <span className="mono-label">EVIDENCE</span>
+                      <span className="mono-label">{t("sponsored.evidence")}</span>
                       <span className="evidence-block__timestamp">{timestamp}</span>
                     </figcaption>
                     <blockquote>“{result.evidence}”</blockquote>
                     {result.source_segment_index !== null && (
                       <p className="mono-label">
-                        SOURCE CUE / {result.source_segment_index}
+                        {t("sponsored.sourceCue", { index: result.source_segment_index })}
                       </p>
                     )}
                   </figure>
@@ -168,14 +178,14 @@ export function ComplianceReport({
                 />
 
                 <details className="technical-detail">
-                  <summary>Technical detail</summary>
+                  <summary>{t("sponsored.technicalDetail")}</summary>
                   <dl>
                     <div>
-                      <dt>Reason code</dt>
+                      <dt>{t("sponsored.reasonCode")}</dt>
                       <dd>{result.reason_code}</dd>
                     </div>
                     <div>
-                      <dt>Requirement ID</dt>
+                      <dt>{t("sponsored.requirementId")}</dt>
                       <dd>{result.requirement_id}</dd>
                     </div>
                   </dl>

@@ -16,7 +16,7 @@ export type SuggestionPhase = "idle" | "generating" | "success" | "error";
 export interface FindingSuggestionState {
   phase: SuggestionPhase;
   suggestion: ShortFormSuggestion | null;
-  error: { message: string; retryable: boolean } | null;
+  error: { code: string; message: string; retryable: boolean } | null;
 }
 
 const EMPTY_STATE: FindingSuggestionState = {
@@ -85,11 +85,12 @@ export function useShortFormSuggestions(report: ShortFormReport | null) {
       if (reportRef.current !== currentReport) return;
       const safeError =
         error instanceof ShortFormSuggestionApiError
-          ? { message: error.message, retryable: error.retryable }
-          : {
-              message: "CreatorPreflight could not generate this suggestion. Try again.",
-              retryable: true,
-            };
+            ? { code: error.code, message: error.message, retryable: error.retryable }
+            : {
+                code: "UNEXPECTED_CLIENT_ERROR",
+                message: "CreatorPreflight could not generate this suggestion. Try again.",
+                retryable: true,
+              };
       setStates((current) => ({
         ...current,
         [findingId]: {

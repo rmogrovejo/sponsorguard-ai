@@ -100,6 +100,40 @@ export const PLATFORM_OPTIONS: ReadonlyArray<{
   { value: "instagram_reels", label: "Instagram Reels", detail: "Vertical short-form" },
 ];
 
+/** Presentation-only platform guidance. Mirrors backend preferred windows; not used for scoring. */
+export const PLATFORM_PRESENTATION: Record<
+  ShortFormPlatform,
+  {
+    preferredMinWidth: number;
+    preferredMinHeight: number;
+    minDurationSeconds: number;
+    preferredMaxDurationSeconds: number;
+    maxDurationSeconds: number;
+  }
+> = {
+  tiktok: {
+    preferredMinWidth: 1080,
+    preferredMinHeight: 1920,
+    minDurationSeconds: 3,
+    preferredMaxDurationSeconds: 60,
+    maxDurationSeconds: 180,
+  },
+  youtube_shorts: {
+    preferredMinWidth: 1080,
+    preferredMinHeight: 1920,
+    minDurationSeconds: 3,
+    preferredMaxDurationSeconds: 60,
+    maxDurationSeconds: 60,
+  },
+  instagram_reels: {
+    preferredMinWidth: 1080,
+    preferredMinHeight: 1920,
+    minDurationSeconds: 3,
+    preferredMaxDurationSeconds: 90,
+    maxDurationSeconds: 180,
+  },
+};
+
 export const SHORTFORM_MAX_UPLOAD_BYTES = 25_000_000;
 
 export type SuggestionFindingId = "opening" | "cta";

@@ -2,6 +2,9 @@ import { useEffect, useRef, type ChangeEvent, type FormEvent } from "react";
 
 import { PLATFORM_OPTIONS, SHORTFORM_MAX_UPLOAD_BYTES } from "../../types/shortform";
 import type { ShortFormPlatform } from "../../types/shortform";
+import { localizeRequestError } from "../../i18n/requestError";
+import type { MessageKey } from "../../i18n/translations";
+import { useTranslation } from "../../i18n/useTranslation";
 import { formatTimestamp } from "../../utils/timestamp";
 import type { ShortFormDraft } from "../persistence/draftSchema";
 import { SectionHeader } from "../shell/SectionHeader";
@@ -9,12 +12,24 @@ import { ShortFormReportView } from "./ShortFormReport";
 import { useShortFormPreflight } from "./useShortFormPreflight";
 import { useShortFormSuggestions } from "./useShortFormSuggestions";
 
-const PHASE_LABELS = {
-  idle: "Ready for input",
-  analyzing: "Analysis in progress",
-  success: "Report complete",
-  error: "Action required",
-} as const;
+const PHASE_KEYS = {
+  idle: "shortform.phaseIdle",
+  analyzing: "shortform.phaseAnalyzing",
+  success: "shortform.phaseSuccess",
+  error: "shortform.phaseError",
+} as const satisfies Record<string, MessageKey>;
+
+const PLATFORM_LABEL = {
+  tiktok: "shortform.tiktok",
+  youtube_shorts: "shortform.youtube_shorts",
+  instagram_reels: "shortform.instagram_reels",
+} as const satisfies Record<ShortFormPlatform, MessageKey>;
+
+const PLATFORM_DETAIL = {
+  tiktok: "shortform.tiktokDetail",
+  youtube_shorts: "shortform.youtube_shortsDetail",
+  instagram_reels: "shortform.instagram_reelsDetail",
+} as const satisfies Record<ShortFormPlatform, MessageKey>;
 
 function formatBytes(size: number): string {
   if (size < 1024) return `${size} B`;
@@ -33,6 +48,7 @@ export function ShortFormWorkspace({
   restoredVideoSelected = false,
   onDraftChange,
 }: ShortFormWorkspaceProps = {}) {
+  const { t, locale } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const skipDraftPublish = useRef(true);
   const {
@@ -82,41 +98,38 @@ export function ShortFormWorkspace({
     <>
       <section className="review-introduction" aria-labelledby="shortform-title">
         <div className="section-index">
-          <span>Pre-publish quality control</span>
-          <span className="mono-label">PROTOCOL / SHORT-FORM</span>
+          <span>{t("shortform.index")}</span>
+          <span className="mono-label">{t("shortform.protocol")}</span>
         </div>
         <div className="review-introduction__grid">
           <div>
-            <p className="review-introduction__eyebrow mono-label">CREATORPREFLIGHT</p>
-            <h1 id="shortform-title">Know what to fix before you publish.</h1>
+            <p className="review-introduction__eyebrow mono-label">{t("shortform.eyebrow")}</p>
+            <h1 id="shortform-title">{t("shortform.heroTitle")}</h1>
           </div>
-          <p>
-            Inspect a TikTok, Shorts, or Reels cut for format, speech, opening,
-            pacing, and a closing call to action before it goes live.
-          </p>
+          <p>{t("shortform.heroBody")}</p>
         </div>
       </section>
 
       <form className="review-workspace" noValidate onSubmit={submit} aria-busy={requestActive}>
         <div className="workspace-docket">
           <div>
-            <p className="mono-label">SHORT-FORM PREFLIGHT</p>
-            <h2>Inspect a vertical cut</h2>
+            <p className="mono-label">{t("shortform.docket")}</p>
+            <h2>{t("shortform.docketTitle")}</h2>
           </div>
           <p className="request-state" aria-live="polite">
-            Status / {PHASE_LABELS[phase]}
+            {t("shortform.status", { phase: t(PHASE_KEYS[phase]) })}
           </p>
         </div>
 
         <section className="review-section" aria-labelledby="platform-heading">
           <SectionHeader
-            step="01 / PLATFORM"
-            title="Platform preset"
+            step={t("shortform.platformStep")}
+            title={t("shortform.platformTitle")}
             titleId="platform-heading"
-            description="Preferred vertical guidance for one short-form destination."
+            description={t("shortform.platformBody")}
           />
           <fieldset className="platform-options" disabled={requestActive}>
-            <legend className="visually-hidden">Short-form platform</legend>
+            <legend className="visually-hidden">{t("shortform.platformLegend")}</legend>
             {PLATFORM_OPTIONS.map((option) => (
               <label key={option.value}>
                 <input
@@ -126,8 +139,8 @@ export function ShortFormWorkspace({
                   checked={platform === option.value}
                   onChange={() => setPlatform(option.value)}
                 />
-                <strong>{option.label}</strong>
-                <span>{option.detail}</span>
+                <strong>{t(PLATFORM_LABEL[option.value])}</strong>
+                <span>{t(PLATFORM_DETAIL[option.value])}</span>
               </label>
             ))}
           </fieldset>
@@ -135,10 +148,10 @@ export function ShortFormWorkspace({
 
         <section className="review-section" aria-labelledby="video-heading">
           <SectionHeader
-            step="02 / VIDEO"
-            title="Local video"
+            step={t("shortform.videoStep")}
+            title={t("shortform.videoTitle")}
             titleId="video-heading"
-            description="Upload stays on this machine until you start preflight. MP4 only."
+            description={t("shortform.videoBody")}
           />
           <div className="transcript-toolbar">
             <input
@@ -152,61 +165,60 @@ export function ShortFormWorkspace({
             />
             <div className="transcript-toolbar__actions">
               <label className="secondary-button" htmlFor="shortform-video">
-                {selection ? "Replace video" : "Choose MP4"}
+                {selection ? t("shortform.replaceVideo") : t("shortform.chooseMp4")}
               </label>
               {selection && (
                 <button className="text-button" type="button" onClick={removeFile}>
-                  Remove file
+                  {t("shortform.removeFile")}
                 </button>
               )}
             </div>
             <p>
-              Maximum {Math.round(SHORTFORM_MAX_UPLOAD_BYTES / 1_000_000)} MB. Preflight
-              does not start automatically. Uploaded videos are not saved in this browser.
+              {t("shortform.videoHint", {
+                max: Math.round(SHORTFORM_MAX_UPLOAD_BYTES / 1_000_000),
+              })}
             </p>
           </div>
           {showReselectNotice && (
             <p className="draft-restore-notice" role="status">
-              Local video must be selected again after refresh.
+              {t("shortform.reselectVideo")}
             </p>
           )}
           {selection && (
-            <dl className="video-meta" aria-label="Selected video">
+            <dl className="video-meta" aria-label={t("shortform.selectedVideo")}>
               <div>
-                <dt>Filename</dt>
+                <dt>{t("shortform.filename")}</dt>
                 <dd>{selection.filename}</dd>
               </div>
               <div>
-                <dt>Size</dt>
+                <dt>{t("shortform.size")}</dt>
                 <dd>{formatBytes(selection.sizeBytes)}</dd>
               </div>
               <div>
-                <dt>Duration</dt>
+                <dt>{t("shortform.duration")}</dt>
                 <dd>
                   {selection.durationSeconds === null
-                    ? "Measured on analyze"
+                    ? t("shortform.measuredLater")
                     : formatTimestamp(selection.durationSeconds)}
                 </dd>
               </div>
               <div>
-                <dt>Dimensions</dt>
+                <dt>{t("shortform.dimensions")}</dt>
                 <dd>
                   {selection.width && selection.height
                     ? `${selection.width} × ${selection.height}`
-                    : "Measured on analyze"}
+                    : t("shortform.measuredLater")}
                 </dd>
               </div>
               <div>
-                <dt>Platform</dt>
-                <dd>
-                  {PLATFORM_OPTIONS.find((item) => item.value === platform)?.label}
-                </dd>
+                <dt>{t("shortform.platform")}</dt>
+                <dd>{t(PLATFORM_LABEL[platform])}</dd>
               </div>
             </dl>
           )}
           {selectionError && (
             <p className="field-error" role="alert">
-              {selectionError}
+              {t(selectionError)}
             </p>
           )}
         </section>
@@ -214,8 +226,8 @@ export function ShortFormWorkspace({
         {requestError && (
           <div className="request-error" role="alert">
             <div>
-              <p className="mono-label">PREFLIGHT NOT COMPLETED</p>
-              <h3>{requestError.message}</h3>
+              <p className="mono-label">{t("shortform.notCompleted")}</p>
+              <h3>{localizeRequestError(locale, requestError.code, "shortform")}</h3>
             </div>
             {requestError.retryable && (
               <button
@@ -224,7 +236,7 @@ export function ShortFormWorkspace({
                 disabled={requestActive}
                 onClick={() => void analyze()}
               >
-                Retry preflight
+                {t("shortform.retry")}
               </button>
             )}
           </div>
@@ -232,11 +244,11 @@ export function ShortFormWorkspace({
 
         <footer className="analysis-bar">
           <div>
-            <p className="mono-label">03 / ANALYZE</p>
-            <p>Run deterministic media checks for the selected preset.</p>
+            <p className="mono-label">{t("shortform.analyzeStep")}</p>
+            <p>{t("shortform.analyzeBody")}</p>
           </div>
           <button className="primary-button" type="submit" disabled={requestActive || !selection}>
-            {requestActive ? "Running preflight…" : "Start preflight"}
+            {requestActive ? t("shortform.running") : t("shortform.start")}
           </button>
         </footer>
       </form>

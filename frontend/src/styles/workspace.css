@@ -1,5 +1,5 @@
 .review-introduction {
-  padding-block: 0.85rem 0.75rem;
+  padding-block: var(--space-intro-block-start) var(--space-intro-block-end);
 }
 
 .review-introduction__grid {
@@ -46,7 +46,7 @@
   align-items: center;
   gap: 1.25rem;
   min-width: 0;
-  padding-block: 0.85rem;
+  padding-block: var(--space-docket-block);
 }
 
 .workspace-docket > * {
@@ -81,9 +81,9 @@
   display: grid;
   grid-template-columns: var(--section-meta) minmax(0, 1fr);
   column-gap: var(--section-gap);
-  row-gap: 0.95rem;
+  row-gap: var(--space-form-gap);
   align-items: start;
-  padding-block: 1.15rem;
+  padding-block: var(--space-section-block);
   border-top: var(--rule);
 }
 
@@ -452,7 +452,7 @@ label.secondary-button:hover:not(.is-disabled) {
 }
 
 .requirement-editor {
-  padding-block: 1.75rem 2rem;
+  padding-block: var(--space-editor-block) calc(2rem * var(--density-multiplier));
   border-bottom: var(--rule);
 }
 
@@ -607,6 +607,63 @@ label.secondary-button:hover:not(.is-disabled) {
   margin-top: 0.5rem;
   color: var(--color-muted);
   font-size: 0.6875rem;
+}
+
+.srt-guide {
+  margin: 0.65rem 0 0.85rem;
+  padding: 0.7rem 0.8rem 0.75rem;
+  border: var(--rule);
+  background: var(--color-paper-deep);
+}
+
+.srt-guide--attention {
+  border-color: var(--color-fail);
+  background: var(--color-fail-surface);
+}
+
+.srt-guide__summary {
+  margin-top: 0.2rem;
+  color: var(--color-graphite);
+  font-size: 0.8125rem;
+}
+
+.srt-guide__example {
+  margin: 0.55rem 0 0;
+  padding: 0;
+  overflow: auto;
+  color: var(--color-muted-strong);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.srt-guide__example code {
+  font-family: inherit;
+}
+
+.srt-guide details {
+  margin-top: 0.55rem;
+}
+
+.srt-guide summary {
+  cursor: pointer;
+  color: var(--color-signal-ink);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.srt-guide summary:focus-visible {
+  outline: 2px solid var(--color-signal);
+  outline-offset: 3px;
+}
+
+.srt-guide__rules {
+  margin: 0.45rem 0 0;
+  padding-left: 1.15rem;
+  color: var(--color-muted-strong);
+  font-size: 0.75rem;
+  line-height: 1.5;
 }
 
 .request-error {
@@ -799,7 +856,7 @@ label.secondary-button:hover:not(.is-disabled) {
 }
 
 .finding {
-  padding-block: clamp(1.75rem, 4vw, 2.75rem);
+  padding-block: var(--space-finding-block);
   border-bottom: var(--rule);
 }
 
@@ -844,7 +901,9 @@ label.secondary-button:hover:not(.is-disabled) {
   letter-spacing: 0.055em;
   line-height: 1;
   text-transform: uppercase;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 .status-label--pass {

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
+import { localizeRequestError } from "../../i18n/requestError";
+import { useTranslation } from "../../i18n/useTranslation";
+import type { MessageKey } from "../../i18n/translations";
 import type { RequirementDraft } from "../../types/compliance";
 import type { SponsoredContentDraft } from "../persistence/draftSchema";
 import { BriefSection } from "../briefs/BriefSection";
@@ -14,13 +17,13 @@ import { SectionHeader } from "../shell/SectionHeader";
 import { TranscriptSection } from "../transcript/TranscriptSection";
 import { useComplianceAnalysis } from "./useComplianceAnalysis";
 
-const PHASE_LABELS = {
-  idle: "Ready for input",
-  validating: "Validating review",
-  analyzing: "Analysis in progress",
-  success: "Report complete",
-  error: "Action required",
-} as const;
+const PHASE_KEYS = {
+  idle: "sponsored.phaseIdle",
+  validating: "sponsored.phaseValidating",
+  analyzing: "sponsored.phaseAnalyzing",
+  success: "sponsored.phaseSuccess",
+  error: "sponsored.phaseError",
+} as const satisfies Record<string, MessageKey>;
 
 interface ReviewWorkspaceProps {
   initialCampaignName?: string;
@@ -39,6 +42,7 @@ export function ReviewWorkspace({
   initialTranscriptFileName = null,
   onDraftChange,
 }: ReviewWorkspaceProps = {}) {
+  const { t, locale } = useTranslation();
   const [campaignName, setCampaignName] = useState(initialCampaignName);
   const [sponsorBrief, setSponsorBrief] = useState(initialSponsorBrief);
   const [requirements, setRequirements] = useState<RequirementDraft[]>(() =>
@@ -154,30 +158,30 @@ export function ReviewWorkspace({
       >
         <div className="workspace-docket">
           <div>
-            <p className="mono-label">SPONSORGUARD / REVIEW WORKSPACE</p>
-            <h2>Create pre-publish review</h2>
+            <p className="mono-label">{t("sponsored.workspaceKicker")}</p>
+            <h2>{t("sponsored.workspaceTitle")}</h2>
           </div>
           <p className="request-state" aria-live="polite">
-            Status / {PHASE_LABELS[phase]}
+            {t("sponsored.status", { phase: t(PHASE_KEYS[phase]) })}
           </p>
         </div>
 
         <section className="review-section" aria-labelledby="campaign-heading">
           <SectionHeader
-            step="01 / REVIEW"
-            title="Campaign identity"
+            step={t("sponsored.campaignStep")}
+            title={t("sponsored.campaignTitle")}
             titleId="campaign-heading"
-            description="Name this review so its findings remain easy to identify."
+            description={t("sponsored.campaignBody")}
           />
           <div className="form-field campaign-field">
-            <label htmlFor="campaign-name">Campaign or review name</label>
+            <label htmlFor="campaign-name">{t("sponsored.campaignLabel")}</label>
             <input
               id="campaign-name"
               type="text"
               value={campaignName}
               disabled={requestActive}
               maxLength={160}
-              placeholder="AcmeVPN September Campaign"
+              placeholder={t("sponsored.campaignPlaceholder")}
               onChange={(event) => updateCampaignName(event.target.value)}
               aria-invalid={Boolean(validationErrors.campaignName)}
               aria-describedby={
@@ -186,7 +190,7 @@ export function ReviewWorkspace({
             />
             {validationErrors.campaignName && (
               <p className="field-error" id="campaign-name-error">
-                {validationErrors.campaignName}
+                {t(validationErrors.campaignName)}
               </p>
             )}
           </div>
@@ -220,6 +224,7 @@ export function ReviewWorkspace({
           fileName={fileName}
           disabled={requestActive}
           error={validationErrors.transcript}
+          formatIssue={requestError?.code === "INVALID_TRANSCRIPT"}
           onContentChange={updateTranscript}
           onFileLoaded={loadFile}
           onFileRemoved={removeFile}
@@ -228,12 +233,9 @@ export function ReviewWorkspace({
         {requestError && (
           <div className="request-error" role="alert">
             <div>
-              <p className="mono-label">REVIEW NOT COMPLETED</p>
-              <h3>{requestError.message}</h3>
-              <p>
-                Your campaign, requirements, and transcript have been kept in
-                place.
-              </p>
+              <p className="mono-label">{t("sponsored.notCompleted")}</p>
+              <h3>{localizeRequestError(locale, requestError.code, "compliance")}</h3>
+              <p>{t("sponsored.kept")}</p>
             </div>
             {requestError.retryable && (
               <button
@@ -242,7 +244,7 @@ export function ReviewWorkspace({
                 disabled={requestActive}
                 onClick={() => submitReview()}
               >
-                Retry analysis
+                {t("sponsored.retry")}
               </button>
             )}
           </div>
@@ -250,10 +252,12 @@ export function ReviewWorkspace({
 
         <footer className="analysis-bar">
           <div>
-            <p className="mono-label">05 / ANALYZE</p>
+            <p className="mono-label">{t("sponsored.analyzeStep")}</p>
             <p>
-              SponsorGuard will evaluate {requirements.length} configured
-              {requirements.length === 1 ? " requirement" : " requirements"}.
+              {t(
+                requirements.length === 1 ? "sponsored.analyzeCount" : "sponsored.analyzeCountPlural",
+                { count: requirements.length },
+              )}
             </p>
           </div>
           <button
@@ -262,10 +266,10 @@ export function ReviewWorkspace({
             disabled={requestActive}
           >
             {phase === "validating"
-              ? "Checking inputs…"
+              ? t("sponsored.checking")
               : phase === "analyzing"
-                ? "Analyzing review…"
-                : "Analyze review"}
+                ? t("sponsored.analyzing")
+                : t("sponsored.analyze")}
           </button>
         </footer>
       </form>

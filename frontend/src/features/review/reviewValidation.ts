@@ -3,17 +3,18 @@ import type {
   RequirementDraft,
   RequirementPayload,
 } from "../../types/compliance";
+import type { MessageKey } from "../../i18n/translations";
 
 export interface RequirementFieldErrors {
-  description?: string;
-  value?: string;
-  beforeSeconds?: string;
+  description?: MessageKey;
+  value?: MessageKey;
+  beforeSeconds?: MessageKey;
 }
 
 export interface ReviewValidationErrors {
-  campaignName?: string;
-  requirements?: string;
-  transcript?: string;
+  campaignName?: MessageKey;
+  requirements?: MessageKey;
+  transcript?: MessageKey;
   requirementFields: Record<string, RequirementFieldErrors>;
 }
 
@@ -93,35 +94,34 @@ export function validateReviewDraft(draft: ReviewDraft): ReviewValidationResult 
   const errors: ReviewValidationErrors = { requirementFields: {} };
 
   if (!draft.campaignName.trim()) {
-    errors.campaignName = "Enter a campaign or review name.";
+    errors.campaignName = "validation.campaignName";
   }
 
   if (draft.requirements.length === 0) {
-    errors.requirements = "Add at least one sponsorship requirement.";
+    errors.requirements = "validation.requirements";
   }
 
   for (const requirement of draft.requirements) {
     const fieldErrors: RequirementFieldErrors = {};
 
     if (!requirement.description.trim()) {
-      fieldErrors.description = "Describe what should be checked.";
+      fieldErrors.description = "validation.description";
     }
 
     if (!requirement.value.trim()) {
       fieldErrors.value =
         requirement.type === "required_url"
-          ? "Enter a campaign URL."
+          ? "validation.url"
           : requirement.type === "required_talking_point"
-            ? "Describe what viewers should understand."
+            ? "validation.talkingPoint"
             : requirement.type === "forbidden_claim"
-              ? "Describe the meaning the creator must not communicate."
-              : "Enter the phrase or token to check.";
+              ? "validation.forbiddenClaim"
+              : "validation.phrase";
     } else if (
       requirement.type === "required_url" &&
       !isValidCampaignUrl(requirement.value)
     ) {
-      fieldErrors.value =
-        "Enter a valid campaign URL such as acmevpn.com/creator.";
+      fieldErrors.value = "validation.urlInvalid";
     }
 
     if (requirement.type === "required_mention_before") {
@@ -131,7 +131,7 @@ export function validateReviewDraft(draft: ReviewDraft): ReviewValidationResult 
         !Number.isFinite(deadline) ||
         deadline < 0
       ) {
-        fieldErrors.beforeSeconds = "Enter a deadline of zero seconds or more.";
+        fieldErrors.beforeSeconds = "validation.beforeSeconds";
       }
     }
 
@@ -141,7 +141,7 @@ export function validateReviewDraft(draft: ReviewDraft): ReviewValidationResult 
   }
 
   if (!draft.transcriptContent.trim().replace(/^\uFEFF/, "").trim()) {
-    errors.transcript = "Paste or upload an SRT transcript before analyzing.";
+    errors.transcript = "validation.transcript";
   }
 
   const valid =

@@ -6,8 +6,13 @@ import type {
   ShortFormSuggestion,
   SuggestionFindingId,
 } from "../../types/shortform";
-import { PLATFORM_OPTIONS, isSuggestionEligible } from "../../types/shortform";
+import { isSuggestionEligible } from "../../types/shortform";
+import type { ShortFormPlatform } from "../../types/shortform";
+import { localizeRequestError } from "../../i18n/requestError";
+import type { MessageKey } from "../../i18n/translations";
+import { useTranslation } from "../../i18n/useTranslation";
 import { formatTimestamp, formatTimestampPrecise } from "../../utils/timestamp";
+import { localizeFindingCopy, localizePriority, type FindingCopyContext } from "./localizeFinding";
 import type { FindingSuggestionState } from "./useShortFormSuggestions";
 
 interface ShortFormReportViewProps {
@@ -19,12 +24,18 @@ interface ShortFormReportViewProps {
   onDismissSuggestion?: (findingId: SuggestionFindingId) => void;
 }
 
-const STATUS_LABELS = {
-  pass: "Pass",
-  warning: "Review",
-  fail: "Fail",
-  not_evaluated: "Not evaluated",
-} as const;
+const STATUS_KEYS = {
+  pass: "shortform.pass",
+  warning: "shortform.review",
+  fail: "shortform.fail",
+  not_evaluated: "shortform.notEvaluated",
+} as const satisfies Record<PreflightStatus, MessageKey>;
+
+const PLATFORM_LABEL = {
+  tiktok: "shortform.tiktok",
+  youtube_shorts: "shortform.youtube_shorts",
+  instagram_reels: "shortform.instagram_reels",
+} as const satisfies Record<ShortFormPlatform, MessageKey>;
 
 function findingById(report: ShortFormReport, checkId: string): PreflightFinding | undefined {
   return report.findings.find((item) => item.check_id === checkId);
@@ -61,8 +72,8 @@ export function ShortFormReportView({
   onSuggest,
   onDismissSuggestion,
 }: ShortFormReportViewProps) {
-  const platformLabel =
-    PLATFORM_OPTIONS.find((item) => item.value === report.platform)?.label ?? report.platform;
+  const { t } = useTranslation();
+  const platformLabel = t(PLATFORM_LABEL[report.platform]);
   const orientation = findingById(report, "orientation");
   const resolution = findingById(report, "resolution");
   const duration = findingById(report, "duration");
@@ -73,37 +84,44 @@ export function ShortFormReportView({
   const cta = findingById(report, "cta");
   const score = report.summary.readiness_score;
   const semanticNotice = isSemanticProviderGap(opening) && isSemanticProviderGap(cta);
+  const copyContext: FindingCopyContext = {
+    platform: report.platform,
+    hasAudio: report.media.has_audio,
+  };
 
   return (
     <section className="compliance-report shortform-report" aria-labelledby="shortform-report-heading">
       <header className="report-header">
         <div className="report-header__copy">
-          <p className="mono-label">SHORT-FORM PREFLIGHT / {platformLabel.toUpperCase()}</p>
+          <p className="mono-label">{t("shortform.reportKicker", { platform: platformLabel.toUpperCase() })}</p>
           <h2 id="shortform-report-heading">{platformLabel}</h2>
-          <p>Format, speech, opening, pacing, and closing-action findings from the selected preset.</p>
+          <p>{t("shortform.reportBody")}</p>
         </div>
         <div className="report-metrics">
           <div
             className="score-block"
             aria-label={
               score === null
-                ? "Readiness score unavailable"
-                : `Readiness score ${score} out of 100`
+                ? t("shortform.readinessUnavailable")
+                : t("shortform.readinessScore", { score })
             }
           >
-            <span className="mono-label">READINESS</span>
+            <span className="mono-label">{t("shortform.readiness")}</span>
             <strong>{score === null ? "—" : Number.isInteger(score) ? score.toFixed(0) : score.toFixed(1)}</strong>
-            <span>{score === null ? "not scored" : "/ 100"}</span>
+            <span>{score === null ? t("shortform.notScored") : "/ 100"}</span>
           </div>
           <div
             className="coverage-block"
-            aria-label={`${report.summary.evaluated} of ${report.summary.total} checks evaluated`}
+            aria-label={t("shortform.checksAria", {
+              evaluated: report.summary.evaluated,
+              total: report.summary.total,
+            })}
           >
-            <span className="mono-label">CHECKS</span>
+            <span className="mono-label">{t("shortform.checks")}</span>
             <strong>
               {report.summary.evaluated} / {report.summary.total}
             </strong>
-            <span>evaluated</span>
+            <span>{t("shortform.evaluated")}</span>
           </div>
         </div>
       </header>
@@ -112,34 +130,39 @@ export function ShortFormReportView({
         {semanticNotice && (
           <SemanticNotice onRetry={onRetry} retrying={retrying} />
         )}
-        <FormatSection orientation={orientation} resolution={resolution} />
+        <FormatSection orientation={orientation} resolution={resolution} context={copyContext} />
         <CheckBlock
-          title="Duration"
+          title={t("shortform.durationCheck")}
           finding={duration}
+          context={copyContext}
           detail={
             duration?.measurements && typeof duration.measurements.duration_seconds === "number"
-              ? `${Number(duration.measurements.duration_seconds).toFixed(2)} sec`
+              ? t("shortform.seconds", {
+                  value: Number(duration.measurements.duration_seconds).toFixed(2),
+                })
               : null
           }
         />
-        <CheckBlock title="Audio" finding={audio} />
-        <SpeechBlock finding={speech} />
+        <CheckBlock title={t("shortform.audio")} finding={audio} context={copyContext} />
+        <SpeechBlock finding={speech} context={copyContext} />
         <SemanticBlock
-          title="Opening"
+          title={t("shortform.opening")}
           finding={opening}
+          context={copyContext}
           concise={semanticNotice}
-          fallback="Retry preflight to evaluate the opening."
+          fallback={t("shortform.openingFallback")}
           suggestionKind="opening"
           suggestionState={suggestionStateFor?.("opening")}
           onSuggest={onSuggest}
           onDismissSuggestion={onDismissSuggestion}
         />
-        <PacingBlock finding={pacing} />
+        <PacingBlock finding={pacing} context={copyContext} />
         <SemanticBlock
-          title="Call to action"
+          title={t("shortform.cta")}
           finding={cta}
+          context={copyContext}
           concise={semanticNotice}
-          fallback="Retry preflight to evaluate the call to action."
+          fallback={t("shortform.ctaFallback")}
           suggestionKind="cta"
           suggestionState={suggestionStateFor?.("cta")}
           onSuggest={onSuggest}
@@ -153,7 +176,8 @@ export function ShortFormReportView({
 }
 
 function Status({ status }: { status: PreflightStatus }) {
-  return <span className={`status-label status-label--${status}`}>{STATUS_LABELS[status]}</span>;
+  const { t } = useTranslation();
+  return <span className={`status-label status-label--${status}`}>{t(STATUS_KEYS[status])}</span>;
 }
 
 function SemanticNotice({
@@ -163,16 +187,17 @@ function SemanticNotice({
   onRetry?: () => void;
   retrying: boolean;
 }) {
+  const { t } = useTranslation();
   return (
-    <article className="shortform-check shortform-notice" aria-label="Semantic review partially unavailable">
+    <article className="shortform-check shortform-notice" aria-label={t("shortform.semanticNoticeAria")}>
       <header>
-        <p className="mono-label">SEMANTIC REVIEW</p>
-        <span className="status-label status-label--not_evaluated">Partially unavailable</span>
+        <p className="mono-label">{t("shortform.semanticReview")}</p>
+        <span className="status-label status-label--not_evaluated">{t("shortform.partiallyUnavailable")}</span>
       </header>
-      <p>Format, audio, duration, and pacing checks completed. Opening and CTA could not be evaluated.</p>
+      <p>{t("shortform.semanticNotice")}</p>
       {onRetry && (
         <button className="secondary-button" type="button" disabled={retrying} onClick={onRetry}>
-          Retry preflight
+          {t("shortform.retry")}
         </button>
       )}
     </article>
@@ -182,36 +207,50 @@ function SemanticNotice({
 function FormatSection({
   orientation,
   resolution,
+  context,
 }: {
   orientation?: PreflightFinding;
   resolution?: PreflightFinding;
+  context: FindingCopyContext;
 }) {
+  const { t } = useTranslation();
   if (!orientation && !resolution) return null;
   return (
     <article className="shortform-check">
       <header>
-        <p className="mono-label">FORMAT</p>
+        <p className="mono-label">{t("shortform.format")}</p>
       </header>
-      {orientation && <FormatRow label="Orientation" finding={orientation} />}
-      {resolution && <FormatRow label="Resolution" finding={resolution} />}
+      {orientation && (
+        <FormatRow label={t("shortform.orientation")} finding={orientation} context={context} />
+      )}
+      {resolution && (
+        <FormatRow label={t("shortform.resolution")} finding={resolution} context={context} />
+      )}
     </article>
   );
 }
 
-function FormatRow({ label, finding }: { label: string; finding: PreflightFinding }) {
+function FormatRow({
+  label,
+  finding,
+  context,
+}: {
+  label: string;
+  finding: PreflightFinding;
+  context: FindingCopyContext;
+}) {
+  const { t } = useTranslation();
   const size = pixelSize(finding);
-  const compactPortrait = finding.reason.includes("9:16 portrait");
+  const copy = localizeFindingCopy(finding, context, t);
   return (
     <div className="shortform-subfinding">
       <header>
         <p className="mono-label">{label.toUpperCase()}</p>
         <Status status={finding.status} />
       </header>
-      <p className="shortform-subfinding__lead">
-        {compactPortrait ? "9:16 portrait" : finding.reason}
-      </p>
+      <p className="shortform-subfinding__lead">{copy.lead}</p>
       {size && <p className="mono-label">{size}</p>}
-      {finding.recommendation && <p>{finding.recommendation}</p>}
+      {copy.recommendation && <p>{copy.recommendation}</p>}
     </div>
   );
 }
@@ -219,13 +258,17 @@ function FormatRow({ label, finding }: { label: string; finding: PreflightFindin
 function CheckBlock({
   title,
   finding,
+  context,
   detail,
 }: {
   title: string;
   finding?: PreflightFinding;
+  context: FindingCopyContext;
   detail?: string | null;
 }) {
+  const { t } = useTranslation();
   if (!finding) return null;
+  const copy = localizeFindingCopy(finding, context, t);
   return (
     <article className="shortform-check">
       <header>
@@ -233,14 +276,22 @@ function CheckBlock({
         <Status status={finding.status} />
       </header>
       {detail && <p className="mono-label shortform-measure">{detail}</p>}
-      <p>{finding.reason}</p>
-      {finding.recommendation && <p>{finding.recommendation}</p>}
+      <p>{copy.lead}</p>
+      {copy.recommendation && <p>{copy.recommendation}</p>}
     </article>
   );
 }
 
-function SpeechBlock({ finding }: { finding?: PreflightFinding }) {
+function SpeechBlock({
+  finding,
+  context,
+}: {
+  finding?: PreflightFinding;
+  context: FindingCopyContext;
+}) {
+  const { t } = useTranslation();
   if (!finding) return null;
+  const copy = localizeFindingCopy(finding, context, t);
   const activity =
     finding.measurements && typeof finding.measurements.activity_start_seconds === "number"
       ? Number(finding.measurements.activity_start_seconds)
@@ -249,22 +300,22 @@ function SpeechBlock({ finding }: { finding?: PreflightFinding }) {
   return (
     <article className="shortform-check">
       <header>
-        <p className="mono-label">SPEECH</p>
+        <p className="mono-label">{t("shortform.speech")}</p>
         <Status status={finding.status} />
       </header>
       {estimated && (
         <>
           <p className="shortform-range">
-            Activity start
+            {t("shortform.activityStart")}
             <span>{formatTimestampPrecise(activity)}</span>
           </p>
-          <p className="mono-label">Estimated</p>
-          <p>First sustained voice-like activity detected.</p>
-          <p>Energy-based estimate. Music or effects may also trigger this measurement.</p>
+          <p className="mono-label">{t("shortform.estimated")}</p>
+          <p>{t("shortform.speechPassLead")}</p>
+          <p>{t("shortform.speechPassNote")}</p>
         </>
       )}
-      {!estimated && <p>{finding.reason}</p>}
-      {finding.recommendation && <p>{finding.recommendation}</p>}
+      {!estimated && <p>{copy.lead}</p>}
+      {!estimated && copy.recommendation && <p>{copy.recommendation}</p>}
     </article>
   );
 }
@@ -272,6 +323,7 @@ function SpeechBlock({ finding }: { finding?: PreflightFinding }) {
 function SemanticBlock({
   title,
   finding,
+  context,
   concise,
   fallback,
   suggestionKind,
@@ -281,6 +333,7 @@ function SemanticBlock({
 }: {
   title: string;
   finding?: PreflightFinding;
+  context: FindingCopyContext;
   concise: boolean;
   fallback: string;
   suggestionKind: SuggestionFindingId;
@@ -288,10 +341,12 @@ function SemanticBlock({
   onSuggest?: (findingId: SuggestionFindingId) => void;
   onDismissSuggestion?: (findingId: SuggestionFindingId) => void;
 }) {
+  const { t } = useTranslation();
   if (!finding) return null;
+  const copy = localizeFindingCopy(finding, context, t);
   const providerGap = isSemanticProviderGap(finding);
   const stamp = finding.ranges[0]?.start_seconds;
-  const reason = providerGap ? (concise ? fallback : "Semantic review temporarily unavailable.") : finding.reason;
+  const reason = providerGap ? (concise ? fallback : copy.lead) : copy.lead;
   return (
     <article className="shortform-check">
       <header>
@@ -299,10 +354,16 @@ function SemanticBlock({
         <Status status={finding.status} />
       </header>
       <p>{reason}</p>
-      {!providerGap && finding.recommendation && <p>{finding.recommendation}</p>}
+      {!providerGap && copy.recommendation && <p>{copy.recommendation}</p>}
+      {!providerGap && copy.providerDetail && (
+        <details className="technical-detail">
+          <summary>{t("shortform.semanticDetail")}</summary>
+          <p>{copy.providerDetail}</p>
+        </details>
+      )}
       {!providerGap && (stamp !== undefined || finding.evidence_text) && (
         <div className="shortform-evidence">
-          <p className="mono-label">EVIDENCE</p>
+          <p className="mono-label">{t("shortform.evidence")}</p>
           {stamp !== undefined && (
             <p className="shortform-range">{formatTimestampPrecise(stamp)}</p>
           )}
@@ -335,11 +396,12 @@ function SuggestionPanel({
   onSuggest: (findingId: SuggestionFindingId) => void;
   onDismiss?: (findingId: SuggestionFindingId) => void;
 }) {
+  const { t, locale } = useTranslation();
   if (!isSuggestionEligible(finding)) return null;
   const phase = state?.phase ?? "idle";
   const generating = phase === "generating";
-  const actionLabel = kind === "opening" ? "Suggest stronger opening" : "Suggest CTA";
-  const recommendedLabel = kind === "opening" ? "RECOMMENDED OPENING" : "RECOMMENDED CTA";
+  const actionLabel = kind === "opening" ? t("shortform.suggestOpening") : t("shortform.suggestCta");
+  const recommendedLabel = kind === "opening" ? t("shortform.recommendedOpening") : t("shortform.recommendedCta");
   const showInitialAction = phase === "idle" || (phase === "error" && !state?.suggestion) || (phase === "generating" && !state?.suggestion);
   return (
     <div
@@ -354,12 +416,12 @@ function SuggestionPanel({
           disabled={generating}
           onClick={() => onSuggest(kind)}
         >
-          {generating ? "Suggesting…" : phase === "error" ? "Retry" : actionLabel}
+          {generating ? t("shortform.suggesting") : phase === "error" ? t("shortform.retryShort") : actionLabel}
         </button>
       )}
       {phase === "error" && state?.error && (
         <p className="shortform-suggestion__error" role="alert">
-          {state.error.message}
+          {localizeRequestError(locale, state.error.code, "suggestion")}
         </p>
       )}
       {state?.suggestion && (phase === "success" || phase === "error" || phase === "generating") && (
@@ -388,23 +450,22 @@ function SuggestionResult({
   onRegenerate: () => void;
   onDismiss?: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="shortform-suggestion__result">
       <p className="mono-label">{recommendedLabel}</p>
-      <p className="mono-label">{suggestion.display_label}</p>
       {suggestion.suggested_text && (
         <blockquote cite="suggestion">{suggestion.suggested_text}</blockquote>
       )}
-      <p>{suggestion.reason}</p>
-      <p className="mono-label">PLACEMENT</p>
-      <p className="shortform-range">{formatSuggestionPlacement(suggestion)}</p>
+      <p className="mono-label">{t("shortform.placement")}</p>
+      <p className="shortform-range">{formatSuggestionPlacement(suggestion, t)}</p>
       <div className="shortform-suggestion__actions">
         <button className="text-button" type="button" disabled={regenerating} onClick={onRegenerate}>
-          {regenerating ? "Suggesting…" : "Regenerate"}
+          {regenerating ? t("shortform.suggesting") : t("shortform.regenerate")}
         </button>
         {onDismiss && (
           <button className="text-button" type="button" disabled={regenerating} onClick={onDismiss}>
-            Dismiss suggestion
+            {t("shortform.dismissSuggestion")}
           </button>
         )}
       </div>
@@ -412,36 +473,50 @@ function SuggestionResult({
   );
 }
 
-function formatSuggestionPlacement(suggestion: ShortFormSuggestion): string {
+function formatSuggestionPlacement(
+  suggestion: ShortFormSuggestion,
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string,
+): string {
   const { placement } = suggestion;
   if (placement.strategy === "replace_opening" && placement.start_seconds != null && placement.end_seconds != null) {
-    return `Replace opening / ${formatTimestampPrecise(placement.start_seconds)}–${formatTimestampPrecise(placement.end_seconds)}`;
+    return t("shortform.placeReplaceOpening", {
+      start: formatTimestampPrecise(placement.start_seconds),
+      end: formatTimestampPrecise(placement.end_seconds),
+    });
   }
   if (placement.strategy === "opening_first_seconds") {
-    return "Opening / first seconds";
+    return t("shortform.placeOpeningFirst");
   }
   if (placement.after_seconds != null) {
-    return `Near ending / after ${formatTimestampPrecise(placement.after_seconds)}`;
+    return t("shortform.placeNearEndingAfter", { time: formatTimestampPrecise(placement.after_seconds) });
   }
-  return "Near ending";
+  return t("shortform.placeNearEnding");
 }
 
-function PacingBlock({ finding }: { finding?: PreflightFinding }) {
+function PacingBlock({
+  finding,
+  context,
+}: {
+  finding?: PreflightFinding;
+  context: FindingCopyContext;
+}) {
+  const { t } = useTranslation();
   if (!finding) return null;
+  const copy = localizeFindingCopy(finding, context, t);
   return (
     <article className="shortform-check">
       <header>
-        <p className="mono-label">PACING</p>
+        <p className="mono-label">{t("shortform.pacing")}</p>
         <Status status={finding.status} />
       </header>
       {finding.ranges.map((range) => (
         <p key={`${range.start_seconds}-${range.end_seconds}`} className="shortform-range">
           {formatTimestampPrecise(range.start_seconds)}–{formatTimestampPrecise(range.end_seconds)}
-          <span>{range.duration_seconds.toFixed(2)} sec low-energy interval</span>
+          <span>{t("shortform.lowEnergy", { value: range.duration_seconds.toFixed(2) })}</span>
         </p>
       ))}
-      <p>{finding.reason}</p>
-      {finding.recommendation && <p>{finding.recommendation}</p>}
+      <p>{copy.lead}</p>
+      {copy.recommendation && <p>{copy.recommendation}</p>}
     </article>
   );
 }
@@ -455,9 +530,10 @@ type TimelineMark = {
 };
 
 function ReportTimeline({ report }: { report: ShortFormReport }) {
+  const { t } = useTranslation();
   const duration = report.media.duration_seconds;
   if (duration <= 0) return null;
-  const marks = collectTimelineMarks(report);
+  const marks = collectTimelineMarks(report, t);
   if (marks.length === 0) return null;
   const laidOut = layoutMarks(marks, duration);
   const stacked = laidOut.some((mark) => mark.offset > 0);
@@ -465,9 +541,9 @@ function ReportTimeline({ report }: { report: ShortFormReport }) {
   return (
     <article className="shortform-check">
       <header>
-        <p className="mono-label">TIMELINE</p>
+        <p className="mono-label">{t("shortform.timeline")}</p>
       </header>
-      <div className="shortform-timeline" aria-label="Short-form timeline">
+      <div className="shortform-timeline" aria-label={t("shortform.timelineAria")}>
         <div className={`shortform-timeline__track${stacked ? " shortform-timeline__track--stacked" : ""}`}>
           {laidOut.map((mark) => (
             <span
@@ -504,7 +580,10 @@ function ReportTimeline({ report }: { report: ShortFormReport }) {
   );
 }
 
-function collectTimelineMarks(report: ShortFormReport): TimelineMark[] {
+function collectTimelineMarks(
+  report: ShortFormReport,
+  t: (key: MessageKey) => string,
+): TimelineMark[] {
   const marks: TimelineMark[] = [];
   const opening = findingById(report, "opening");
   const pacing = findingById(report, "dead_air");
@@ -513,7 +592,7 @@ function collectTimelineMarks(report: ShortFormReport): TimelineMark[] {
   if (openingAt !== undefined && opening?.status !== "not_evaluated") {
     marks.push({
       key: "hook",
-      label: "HOOK",
+      label: t("shortform.markHook"),
       seconds: openingAt,
       kind: "hook",
     });
@@ -522,7 +601,7 @@ function collectTimelineMarks(report: ShortFormReport): TimelineMark[] {
   pacingRanges.forEach((range, index) => {
     marks.push({
       key: `pacing-${range.start_seconds}-${range.end_seconds}`,
-      label: pacingRanges.length > 1 ? `P${index + 1}` : "PACING",
+      label: pacingRanges.length > 1 ? `P${index + 1}` : t("shortform.markPacing"),
       seconds: range.start_seconds,
       endSeconds: range.end_seconds,
       kind: "pacing",
@@ -532,7 +611,7 @@ function collectTimelineMarks(report: ShortFormReport): TimelineMark[] {
   if (ctaAt !== undefined && cta?.status === "pass") {
     marks.push({
       key: "cta",
-      label: "CTA",
+      label: t("shortform.markCta"),
       seconds: ctaAt,
       kind: "cta",
     });
@@ -558,17 +637,18 @@ function layoutMarks(marks: TimelineMark[], duration: number) {
 }
 
 function PriorityList({ priorities }: { priorities: ReviewPriority[] }) {
+  const { t } = useTranslation();
   if (priorities.length === 0) return null;
   return (
     <article className="shortform-check">
       <header>
-        <p className="mono-label">REVIEW PRIORITIES</p>
+        <p className="mono-label">{t("shortform.priorities")}</p>
       </header>
       <ol className="shortform-priorities">
         {priorities.map((item) => (
           <li key={`${item.rank}-${item.check_id}`}>
             <span className="mono-label">{String(item.rank).padStart(2, "0")}</span>
-            {item.title}
+            {localizePriority(item, t)}
           </li>
         ))}
       </ol>

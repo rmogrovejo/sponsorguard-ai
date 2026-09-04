@@ -5,6 +5,7 @@ import { AUTOSAVE_DEBOUNCE_MS } from "./draftKeys";
 import { emptyDraft } from "./draftSchema";
 import { useCreatorDraft } from "./useCreatorDraft";
 import { sampleDraft, writeDraft } from "./draftTestFixtures";
+import type { ShortFormPlatform } from "../../types/shortform";
 
 describe("useCreatorDraft", () => {
   it("restores a valid draft without writing immediately", () => {
@@ -60,14 +61,20 @@ describe("useCreatorDraft", () => {
     expect(result.current.statusText).toBe("Local save unavailable");
   });
 
-  it("clears independently owned slices on start new draft", () => {
+  it("uses the configured default platform only for a new draft", () => {
     writeDraft(sampleDraft());
-    const { result } = renderHook(() => useCreatorDraft());
+    const { result, rerender } = renderHook(
+      ({ platform }) => useCreatorDraft({ defaultPlatform: platform }),
+      { initialProps: { platform: "tiktok" as ShortFormPlatform } },
+    );
+    expect(result.current.initialDraft.shortForm.platform).toBe("instagram_reels");
+    rerender({ platform: "youtube_shorts" });
+    expect(result.current.initialDraft.shortForm.platform).toBe("instagram_reels");
     act(() => {
       result.current.startNewDraft();
     });
+    expect(result.current.initialDraft.shortForm.platform).toBe("youtube_shorts");
     expect(result.current.initialDraft.sponsoredContent.campaignName).toBe("");
-    expect(result.current.initialDraft.shortForm.platform).toBe("tiktok");
     expect(window.localStorage.getItem("creatorpreflight:draft:v1")).toBeNull();
   });
 });

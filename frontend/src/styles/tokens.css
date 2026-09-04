@@ -9,10 +9,24 @@
   --color-border-strong: #aaa49a;
   --color-muted: #77736b;
   --color-muted-strong: #65615a;
-  --color-signal: #c65a32;
-  --color-signal-ink: #a94425;
 
-  /* Semantic status palette */
+  /* Curated accents — default terracotta */
+  --accent-terracotta: #c65a32;
+  --accent-terracotta-ink: #a94425;
+  --accent-rust: #b34b2e;
+  --accent-rust-ink: #8c3722;
+  --accent-olive: #6f7340;
+  --accent-olive-ink: #454b2c;
+  --accent-ink: #3d4a55;
+  --accent-ink-ink: #2c3640;
+  --accent-ochre: #c48a22;
+  --accent-ochre-ink: #7a5410;
+
+  --color-signal: var(--accent-terracotta);
+  --color-signal-ink: var(--accent-terracotta-ink);
+  --accent: var(--color-signal);
+
+  /* Semantic status palette — never replaced by accent */
   --color-pass: #596249;
   --color-pass-surface: #e4e6dc;
   --color-warning: #7c5d22;
@@ -22,8 +36,15 @@
 
   /* Typography */
   --font-editorial: Georgia, "Times New Roman", serif;
+  --font-heading: var(--font-editorial);
   --font-interface: Aptos, "Segoe UI", Helvetica, Arial, sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-heading-editorial: Georgia, "Times New Roman", serif;
+  --font-heading-classic: "Palatino Linotype", Palatino, "Book Antiqua", "Times New Roman", serif;
+  --font-heading-modern: "Iowan Old Style", "Sitka Text", Cambria, "Times New Roman", serif;
+  --font-interface-neutral: Aptos, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-interface-humanist: Calibri, Candara, "Gill Sans", "Gill Sans MT", "Trebuchet MS", sans-serif;
+  --font-interface-system: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   /* Structure and motion */
   --page-width: 84rem;
@@ -38,6 +59,14 @@
   --rule-strong: 1px solid var(--color-border-strong);
   --radius-precise: 2px;
   --transition-fast: 150ms ease;
+  --density-multiplier: 1;
+  --space-section-block: calc(1.15rem * var(--density-multiplier));
+  --space-docket-block: calc(0.85rem * var(--density-multiplier));
+  --space-intro-block-start: calc(0.85rem * var(--density-multiplier));
+  --space-intro-block-end: calc(0.75rem * var(--density-multiplier));
+  --space-finding-block: calc(clamp(1.75rem, 4vw, 2.75rem) * var(--density-multiplier));
+  --space-editor-block: calc(1.75rem * var(--density-multiplier));
+  --space-form-gap: calc(0.85rem * var(--density-multiplier));
 
   font-family: var(--font-interface);
   color: var(--color-ink);
@@ -45,4 +74,101 @@
   color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+}
+
+:root[data-theme="light"],
+:root:not([data-theme]) {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --color-paper: #1f1c18;
+  --color-paper-deep: #161410;
+  --color-paper-light: #2a2621;
+  --color-ink: #f3efe6;
+  --color-graphite: #e7e0d4;
+  --color-border: #3d3831;
+  --color-border-strong: #5c564c;
+  --color-muted: #a59c90;
+  --color-muted-strong: #c4bbb0;
+
+  --accent-terracotta: #d56c45;
+  --accent-terracotta-ink: #f0b49a;
+  --accent-rust: #c45b3c;
+  --accent-rust-ink: #e8a894;
+  --accent-olive: #9aa36a;
+  --accent-olive-ink: #c5cc9a;
+  --accent-ink: #8a9aaa;
+  --accent-ink-ink: #c5d0d8;
+  --accent-ochre: #d4a03a;
+  --accent-ochre-ink: #ecc888;
+
+  --color-pass: #b4be96;
+  --color-pass-surface: #2c3124;
+  --color-warning: #d8b56a;
+  --color-warning-surface: #3a301c;
+  --color-fail: #d49286;
+  --color-fail-surface: #3a2824;
+
+  color-scheme: dark;
+}
+
+:root[data-accent="rust"] {
+  --color-signal: var(--accent-rust);
+  --color-signal-ink: var(--accent-rust-ink);
+  --accent: var(--color-signal);
+}
+
+:root[data-accent="olive"] {
+  --color-signal: var(--accent-olive);
+  --color-signal-ink: var(--accent-olive-ink);
+  --accent: var(--color-signal);
+}
+
+:root[data-accent="ink"] {
+  --color-signal: var(--accent-ink);
+  --color-signal-ink: var(--accent-ink-ink);
+  --accent: var(--color-signal);
+}
+
+:root[data-accent="ochre"] {
+  --color-signal: var(--accent-ochre);
+  --color-signal-ink: var(--accent-ochre-ink);
+  --accent: var(--color-signal);
+}
+
+:root[data-heading="classic"] {
+  --font-editorial: var(--font-heading-classic);
+  --font-heading: var(--font-editorial);
+}
+
+:root[data-heading="modern"] {
+  --font-editorial: var(--font-heading-modern);
+  --font-heading: var(--font-editorial);
+}
+
+:root[data-interface="humanist"] {
+  --font-interface: var(--font-interface-humanist);
+}
+
+:root[data-interface="system"] {
+  --font-interface: var(--font-interface-system);
+}
+
+:root[data-density="compact"] {
+  --density-multiplier: 0.72;
+  --section-gap: 1rem;
+  --heading-desc-gap: 0.4rem;
+}
+
+:root[data-motion="reduced"],
+:root[data-motion="reduced"] html {
+  scroll-behavior: auto;
+}
+
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
 }

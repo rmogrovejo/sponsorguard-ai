@@ -1,5 +1,7 @@
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
 
+import type { MessageKey } from "../../i18n/translations";
+import { useTranslation } from "../../i18n/useTranslation";
 import { SectionHeader } from "../shell/SectionHeader";
 
 const MAX_SRT_FILE_BYTES = 2_000_000;
@@ -8,7 +10,8 @@ interface TranscriptSectionProps {
   content: string;
   fileName: string | null;
   disabled: boolean;
-  error?: string;
+  error?: MessageKey;
+  formatIssue?: boolean;
   onContentChange: (content: string) => void;
   onFileLoaded: (fileName: string, content: string) => void;
   onFileRemoved: () => void;
@@ -31,25 +34,35 @@ export function TranscriptSection({
   fileName,
   disabled,
   error,
+  formatIssue = false,
   onContentChange,
   onFileLoaded,
   onFileRemoved,
 }: TranscriptSectionProps) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [fileError, setFileError] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<MessageKey | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const guideId = useId();
+  const exampleId = useId();
+  const errorId = error ? "transcript-content-error" : undefined;
+
+  useEffect(() => {
+    if (formatIssue) setGuideOpen(true);
+  }, [formatIssue]);
 
   const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     if (!file.name.toLocaleLowerCase().endsWith(".srt")) {
-      setFileError("Choose a file with the .srt extension.");
+      setFileError("sponsored.srtExt");
       event.target.value = "";
       return;
     }
 
     if (file.size > MAX_SRT_FILE_BYTES) {
-      setFileError("This SRT file is too large for a single review.");
+      setFileError("sponsored.srtTooLarge");
       event.target.value = "";
       return;
     }
@@ -59,7 +72,7 @@ export function TranscriptSection({
       setFileError(null);
       onFileLoaded(file.name, text);
     } catch {
-      setFileError("The SRT file could not be read. Try another file.");
+      setFileError("sponsored.srtUnreadable");
     }
   };
 
@@ -69,22 +82,22 @@ export function TranscriptSection({
     onFileRemoved();
   };
 
-  const errorId = error ? "transcript-content-error" : undefined;
+  const describedBy = [guideId, exampleId, errorId].filter(Boolean).join(" ");
 
   return (
     <section className="review-section" aria-labelledby="transcript-heading">
       <SectionHeader
-        step="04 / TRANSCRIPT"
-        title="Creator transcript"
+        step={t("sponsored.transcriptStep")}
+        title={t("sponsored.transcriptTitle")}
         titleId="transcript-heading"
-        description="Paste SRT text directly or load a UTF-8 .srt file from this device."
+        description={t("sponsored.transcriptBody")}
       />
 
       <div className="transcript-toolbar">
         <div>
-          <p className="mono-label">LOCAL FILE</p>
+          <p className="mono-label">{t("sponsored.localFile")}</p>
           <p className="transcript-toolbar__note">
-            The file stays in your browser until you analyze the review.
+            {t("sponsored.fileStays")}
           </p>
         </div>
         <div className="transcript-toolbar__actions">
@@ -92,7 +105,7 @@ export function TranscriptSection({
             className={`secondary-button ${disabled ? "is-disabled" : ""}`}
             htmlFor="srt-file"
           >
-            {fileName ? "Replace SRT" : "Upload SRT"}
+            {fileName ? t("sponsored.replaceSrt") : t("sponsored.uploadSrt")}
           </label>
           <input
             ref={inputRef}
@@ -110,7 +123,7 @@ export function TranscriptSection({
               disabled={disabled}
               onClick={removeFile}
             >
-              Remove file
+              {t("shortform.removeFile")}
             </button>
           )}
         </div>
@@ -122,7 +135,7 @@ export function TranscriptSection({
             SRT
           </span>
           <span>
-            <span className="mono-label">SOURCE FILE</span>
+            <span className="mono-label">{t("sponsored.sourceFile")}</span>
             <strong>{fileName}</strong>
           </span>
         </div>
@@ -130,31 +143,53 @@ export function TranscriptSection({
 
       {fileError && (
         <p className="section-error" role="alert">
-          {fileError}
+          {t(fileError)}
         </p>
       )}
 
       <div className="form-field transcript-field">
-        <label htmlFor="transcript-content">SRT transcript</label>
+        <label htmlFor="transcript-content">{t("sponsored.srtLabel")}</label>
+        <div
+          className={`srt-guide${formatIssue ? " srt-guide--attention" : ""}`}
+          role="note"
+        >
+          <p className="mono-label" id={guideId}>
+            {t("sponsored.srtFormatTitle")}
+          </p>
+          <p className="srt-guide__summary">{t("sponsored.srtFormatSummary")}</p>
+          <pre className="srt-guide__example" id={exampleId}>
+            <code>{t("sponsored.srtExample")}</code>
+          </pre>
+          <details
+            open={guideOpen}
+            onToggle={(event) => setGuideOpen(event.currentTarget.open)}
+          >
+            <summary>{t("sponsored.srtGuideToggle")}</summary>
+            <ol className="srt-guide__rules">
+              <li>{t("sponsored.srtRule1")}</li>
+              <li>{t("sponsored.srtRule2")}</li>
+              <li>{t("sponsored.srtRule3")}</li>
+              <li>{t("sponsored.srtRule4")}</li>
+            </ol>
+          </details>
+        </div>
         <textarea
           id="transcript-content"
           value={content}
           disabled={disabled}
           spellCheck={false}
-          placeholder={
-            "1\n00:00:38,000 --> 00:00:42,000\nToday's video is sponsored by AcmeVPN."
-          }
+          placeholder={t("sponsored.srtPlaceholder")}
           onChange={(event) => onContentChange(event.target.value)}
-          aria-invalid={Boolean(error)}
-          aria-describedby={errorId}
+          aria-invalid={Boolean(error) || formatIssue}
+          aria-describedby={describedBy || undefined}
         />
         <div className="transcript-field__meta">
-          <span>Paste or upload SRT only</span>
-          <span className="mono-label">{content.length.toLocaleString()} CHARS</span>
+          <span>{t("sponsored.pasteOnly")}</span>
+          <span className="mono-label">{t("sponsored.chars", { count: content.length.toLocaleString() })}</span>
         </div>
         {error && (
           <p className="field-error" id="transcript-content-error">
-            {error}
+            {t(error)}
           </p>
         )}
       </div>

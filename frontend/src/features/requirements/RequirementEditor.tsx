@@ -1,9 +1,19 @@
 import type { RequirementDraft, RequirementType } from "../../types/compliance";
+import type { MessageKey } from "../../i18n/translations";
+import { useTranslation } from "../../i18n/useTranslation";
 import type { RequirementFieldErrors } from "../review/reviewValidation";
-import {
-  getTargetLabel,
-  REQUIREMENT_OPTIONS,
-} from "./requirementModel";
+import { REQUIREMENT_OPTIONS } from "./requirementModel";
+import { REQUIREMENT_LABEL_KEYS, REQUIREMENT_TARGET_KEYS } from "./requirementLabels";
+
+const VALUE_PLACEHOLDER: Record<RequirementType, MessageKey> = {
+  required_mention: "sponsored.valuePlaceholderMention",
+  required_exact_token: "sponsored.valuePlaceholderToken",
+  required_url: "sponsored.valuePlaceholderUrl",
+  required_talking_point: "sponsored.valuePlaceholderTalking",
+  forbidden_phrase: "sponsored.valuePlaceholderPhrase",
+  forbidden_claim: "sponsored.valuePlaceholderClaim",
+  required_mention_before: "sponsored.valuePlaceholderMention",
+};
 
 interface RequirementEditorProps {
   requirement: RequirementDraft;
@@ -22,6 +32,7 @@ export function RequirementEditor({
   onChange,
   onRemove,
 }: RequirementEditorProps) {
+  const { t } = useTranslation();
   const fieldPrefix = `requirement-${requirement.id}`;
 
   const updateType = (type: RequirementType) => {
@@ -40,52 +51,52 @@ export function RequirementEditor({
       <header className="requirement-editor__header">
         <div>
           <span className="requirement-editor__index mono-label">
-            RULE / {String(position).padStart(2, "0")}
+            {t("sponsored.rule", { n: String(position).padStart(2, "0") })}
           </span>
-          <h3 id={`${fieldPrefix}-title`}>Requirement {position}</h3>
+          <h3 id={`${fieldPrefix}-title`}>{t("sponsored.requirementN", { n: position })}</h3>
         </div>
         <button
           className="text-button text-button--danger"
           type="button"
           disabled={disabled}
           onClick={onRemove}
-          aria-label={`Remove requirement ${position}`}
+          aria-label={t("sponsored.removeN", { n: position })}
         >
-          Remove
+          {t("sponsored.remove")}
         </button>
       </header>
 
       <div className="field-grid">
         <div className="form-field">
-          <label htmlFor={`${fieldPrefix}-type`}>Rule type</label>
+          <label htmlFor={`${fieldPrefix}-type`}>{t("sponsored.ruleType")}</label>
           <select
             id={`${fieldPrefix}-type`}
             value={requirement.type}
             disabled={disabled}
             onChange={(event) => updateType(event.target.value as RequirementType)}
-            aria-label={`Requirement ${position} type`}
+            aria-label={t("sponsored.requirementTypeAria", { n: position })}
           >
             {REQUIREMENT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {t(REQUIREMENT_LABEL_KEYS[option.value])}
               </option>
             ))}
           </select>
         </div>
 
         <div className="form-field form-field--wide">
-          <label htmlFor={`${fieldPrefix}-description`}>Review instruction</label>
+          <label htmlFor={`${fieldPrefix}-description`}>{t("sponsored.reviewInstruction")}</label>
           <input
             id={`${fieldPrefix}-description`}
             type="text"
             value={requirement.description}
             disabled={disabled}
             maxLength={500}
-            placeholder="e.g. Mention the sponsor before 01:00"
+            placeholder={t("sponsored.instructionPlaceholder")}
             onChange={(event) =>
               onChange({ ...requirement, description: event.target.value })
             }
-            aria-label={`Requirement ${position} description`}
+            aria-label={t("sponsored.requirementDescriptionAria", { n: position })}
             aria-invalid={Boolean(errors?.description)}
             aria-describedby={
               errors?.description ? `${fieldPrefix}-description-error` : undefined
@@ -96,14 +107,14 @@ export function RequirementEditor({
               className="field-error"
               id={`${fieldPrefix}-description-error`}
             >
-              {errors.description}
+              {t(errors.description)}
             </p>
           )}
         </div>
 
         <div className="form-field form-field--wide">
           <label htmlFor={`${fieldPrefix}-value`}>
-            {getTargetLabel(requirement.type)}
+            {t(REQUIREMENT_TARGET_KEYS[requirement.type])}
           </label>
           <input
             id={`${fieldPrefix}-value`}
@@ -111,22 +122,12 @@ export function RequirementEditor({
             value={requirement.value}
             disabled={disabled}
             maxLength={500}
-            placeholder={
-              requirement.type === "required_exact_token"
-                ? "e.g. CREATOR25"
-                : requirement.type === "required_url"
-                  ? "e.g. acmevpn.com/creator"
-                  : requirement.type === "required_talking_point"
-                    ? "e.g. The product reduces editing time"
-                    : requirement.type === "forbidden_claim"
-                      ? "e.g. The VPN makes users completely untraceable"
-                  : "e.g. AcmeVPN"
-            }
+            placeholder={t(VALUE_PLACEHOLDER[requirement.type])}
             inputMode={requirement.type === "required_url" ? "url" : "text"}
             onChange={(event) =>
               onChange({ ...requirement, value: event.target.value })
             }
-            aria-label={`Requirement ${position} target value`}
+            aria-label={t("sponsored.requirementValueAria", { n: position })}
             aria-invalid={Boolean(errors?.value)}
             aria-describedby={
               errors?.value ? `${fieldPrefix}-value-error` : undefined
@@ -134,14 +135,14 @@ export function RequirementEditor({
           />
           {errors?.value && (
             <p className="field-error" id={`${fieldPrefix}-value-error`}>
-              {errors.value}
+              {t(errors.value)}
             </p>
           )}
         </div>
 
         {requirement.type === "required_mention_before" && (
           <div className="form-field form-field--deadline">
-            <label htmlFor={`${fieldPrefix}-deadline`}>Deadline in seconds</label>
+            <label htmlFor={`${fieldPrefix}-deadline`}>{t("sponsored.deadlineLabel")}</label>
             <div className="number-field">
               <input
                 id={`${fieldPrefix}-deadline`}
@@ -154,7 +155,7 @@ export function RequirementEditor({
                 onChange={(event) =>
                   onChange({ ...requirement, beforeSeconds: event.target.value })
                 }
-                aria-label={`Requirement ${position} deadline in seconds`}
+                aria-label={t("sponsored.requirementDeadlineAria", { n: position })}
                 aria-invalid={Boolean(errors?.beforeSeconds)}
                 aria-describedby={
                   errors?.beforeSeconds
@@ -165,11 +166,11 @@ export function RequirementEditor({
               <span aria-hidden="true">SEC</span>
             </div>
             <p className="field-hint" id={`${fieldPrefix}-deadline-hint`}>
-              A mention at the exact deadline is accepted.
+              {t("sponsored.deadlineHint")}
             </p>
             {errors?.beforeSeconds && (
               <p className="field-error" id={`${fieldPrefix}-deadline-error`}>
-                {errors.beforeSeconds}
+                {t(errors.beforeSeconds)}
               </p>
             )}
           </div>
@@ -178,7 +179,7 @@ export function RequirementEditor({
 
       {requirement.provenance && (
         <details className="requirement-source">
-          <summary>Source from sponsor brief</summary>
+          <summary>{t("sponsored.sourceFromBrief")}</summary>
           <blockquote>“{requirement.provenance.sourceText}”</blockquote>
         </details>
       )}

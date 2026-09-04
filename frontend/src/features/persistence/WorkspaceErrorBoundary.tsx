@@ -1,5 +1,8 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
+import { isLocale } from "../../i18n/locale";
+import { translate } from "../../i18n/translations";
+
 interface WorkspaceErrorBoundaryProps {
   children: ReactNode;
   onReload?: () => void;
@@ -7,6 +10,10 @@ interface WorkspaceErrorBoundaryProps {
 
 interface WorkspaceErrorBoundaryState {
   failed: boolean;
+}
+
+function boundaryLocale() {
+  return isLocale(document.documentElement.lang) ? document.documentElement.lang : "en";
 }
 
 export class WorkspaceErrorBoundary extends Component<
@@ -28,14 +35,15 @@ export class WorkspaceErrorBoundary extends Component<
   render(): ReactNode {
     if (!this.state.failed) return this.props.children;
     const reload = this.props.onReload ?? (() => window.location.reload());
+    const locale = boundaryLocale();
     return (
       <div className="app-shell workspace-fault">
         <div className="page-frame workspace-fault__inner">
-          <p className="mono-label">CREATORPREFLIGHT</p>
-          <h1>Workspace encountered an unexpected interface error.</h1>
-          <p>Reload the workspace to continue. Your locally saved draft is not rewritten by this message.</p>
+          <p className="mono-label">{translate(locale, "fault.kicker")}</p>
+          <h1>{translate(locale, "fault.title")}</h1>
+          <p>{translate(locale, "fault.body")}</p>
           <button className="secondary-button" type="button" onClick={reload}>
-            Reload workspace
+            {translate(locale, "fault.reload")}
           </button>
         </div>
       </div>

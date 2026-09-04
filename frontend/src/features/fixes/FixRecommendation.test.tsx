@@ -121,13 +121,14 @@ const DEADLINE_SUCCESS: FindingFixState = {
 const RETRYABLE_ERROR: FindingFixState = {
   phase: "error",
   suggestion: null,
-  error: { message: "Fix generation timed out.", retryable: true },
+  error: { code: "LLM_PROVIDER_TIMEOUT", message: "Fix generation timed out.", retryable: true },
 };
 
 const NON_RETRYABLE_ERROR: FindingFixState = {
   phase: "error",
   suggestion: null,
   error: {
+    code: "FIX_NOT_ELIGIBLE",
     message: "This finding is not eligible for a generated fix.",
     retryable: false,
   },
@@ -210,7 +211,7 @@ describe("FixRecommendation", () => {
       screen.getByText(/Use code CREATOR25 at checkout\./),
     ).toBeInTheDocument();
     expect(screen.getByText(/after 00:52/i)).toBeInTheDocument();
-    expect(screen.getByText(/insert the missing required promo code/i)).toBeInTheDocument();
+    expect(screen.queryByText(/insert the missing required promo code/i)).not.toBeInTheDocument();
   });
 
   it("renders a semantic suggestion with replace strategy", () => {
@@ -284,7 +285,7 @@ describe("FixRecommendation", () => {
     );
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.getByText("Fix generation timed out.")).toBeInTheDocument();
+    expect(screen.getByText("Fix generation took too long. Try again.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
   });
 

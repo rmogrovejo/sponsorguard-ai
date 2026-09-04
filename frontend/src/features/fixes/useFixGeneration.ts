@@ -12,7 +12,7 @@ export type FixPhase = "idle" | "generating" | "success" | "error";
 export interface FindingFixState {
   phase: FixPhase;
   suggestion: GeneratedFix | null;
-  error: { message: string; retryable: boolean } | null;
+  error: { code: string; message: string; retryable: boolean } | null;
 }
 
 const EMPTY_STATE: FindingFixState = {
@@ -64,8 +64,9 @@ export function useFixGeneration(report: ReviewReportSnapshot) {
         if (reportRef.current !== reportAtStart) return;
         const safeError =
           error instanceof FixGenerationApiError
-            ? { message: error.message, retryable: error.retryable }
+            ? { code: error.code, message: error.message, retryable: error.retryable }
             : {
+                code: "UNEXPECTED_CLIENT_ERROR",
                 message: "SponsorGuard could not generate a fix. Try again.",
                 retryable: true,
               };

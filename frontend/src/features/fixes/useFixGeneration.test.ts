@@ -247,6 +247,7 @@ describe("useFixGeneration", () => {
       phase: "error",
       suggestion: null,
       error: {
+        code: "LLM_PROVIDER_TIMEOUT",
         message: "Fix generation took too long. Try again.",
         retryable: true,
       },

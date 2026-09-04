@@ -1,7 +1,9 @@
 import type { BriefExtractionPhase, ExtractedRequirement } from "../../types/briefs";
-import { getRequirementLabel } from "../requirements/requirementModel";
+import { REQUIREMENT_LABEL_KEYS } from "../requirements/requirementLabels";
 import { SectionHeader } from "../shell/SectionHeader";
 import { MAX_BRIEF_CHARACTERS, type BriefExtractionError } from "./useBriefExtraction";
+import { localizeRequestError } from "../../i18n/requestError";
+import { useTranslation } from "../../i18n/useTranslation";
 
 interface BriefSectionProps {
   brief: string;
@@ -30,21 +32,24 @@ export function BriefSection({
   onDiscard,
   onRemoveCandidate,
 }: BriefSectionProps) {
+  const { t, locale } = useTranslation();
   const extracting = phase === "extracting";
   const statusText =
     phase === "extracting"
-      ? "Extracting campaign requirements…"
+      ? t("sponsored.extractingStatus")
       : phase === "success"
-        ? `${requirements.length} supported ${requirements.length === 1 ? "requirement" : "requirements"} ready for review.`
+        ? t(requirements.length === 1 ? "sponsored.readyOne" : "sponsored.readyMany", {
+            count: requirements.length,
+          })
         : "";
 
   return (
     <section className="review-section brief-section" aria-labelledby="brief-heading">
       <SectionHeader
-        step="02 / SPONSOR BRIEF"
-        title="Sponsor brief"
+        step={t("sponsored.briefStep")}
+        title={t("sponsored.briefTitle")}
         titleId="brief-heading"
-        description="Extract explicit campaign instructions into a checklist, then review every rule before using it."
+        description={t("sponsored.briefBody")}
         action={
           <button
             className="secondary-button"
@@ -52,25 +57,25 @@ export function BriefSection({
             disabled={disabled || extracting}
             onClick={onExtract}
           >
-            {extracting ? "Reading sponsor brief…" : "Extract requirements"}
+            {extracting ? t("sponsored.extracting") : t("sponsored.extract")}
           </button>
         }
       />
 
       <div className="form-field brief-field">
-        <label htmlFor="sponsor-brief">Campaign document</label>
+        <label htmlFor="sponsor-brief">{t("sponsored.briefLabel")}</label>
         <textarea
           id="sponsor-brief"
           value={brief}
           disabled={disabled || extracting}
           maxLength={MAX_BRIEF_CHARACTERS}
-          placeholder="Paste the sponsor's campaign instructions here…"
+          placeholder={t("sponsored.briefPlaceholder")}
           onChange={(event) => onBriefChange(event.target.value)}
           aria-invalid={Boolean(error?.code === "CLIENT_VALIDATION_ERROR")}
           aria-describedby="sponsor-brief-note sponsor-brief-status"
         />
         <div className="brief-field__meta" id="sponsor-brief-note">
-          <span>Optional when requirements are entered manually.</span>
+          <span>{t("sponsored.briefOptional")}</span>
           <span className="mono-label">
             {brief.length.toLocaleString()} / {MAX_BRIEF_CHARACTERS.toLocaleString()}
           </span>
@@ -87,9 +92,9 @@ export function BriefSection({
         {error && (
           <div className="brief-error">
             <div>
-              <p className="mono-label">EXTRACTION NOT COMPLETED</p>
-              <p>{error.message}</p>
-              <p>Your brief and manual checklist have not been changed.</p>
+              <p className="mono-label">{t("sponsored.extractionFailed")}</p>
+              <p>{localizeRequestError(locale, error.code, "brief")}</p>
+              <p>{t("sponsored.briefUnchanged")}</p>
             </div>
             {error.retryable && (
               <button
@@ -98,7 +103,7 @@ export function BriefSection({
                 disabled={disabled || extracting}
                 onClick={onRetry}
               >
-                Retry extraction
+                {t("sponsored.retryExtract")}
               </button>
             )}
           </div>
@@ -109,12 +114,9 @@ export function BriefSection({
         <div className="extraction-review" aria-labelledby="extraction-review-heading">
           <header className="extraction-review__header">
             <div>
-              <p className="mono-label">HUMAN REVIEW REQUIRED</p>
-              <h3 id="extraction-review-heading">Extracted checklist</h3>
-              <p>
-                These rules are staged only. Appending them will not replace your
-                current checklist.
-              </p>
+              <p className="mono-label">{t("sponsored.humanReview")}</p>
+              <h3 id="extraction-review-heading">{t("sponsored.extractedChecklist")}</h3>
+              <p>{t("sponsored.staged")}</p>
             </div>
             <div className="extraction-review__actions">
               <button
@@ -123,7 +125,7 @@ export function BriefSection({
                 disabled={disabled}
                 onClick={onDiscard}
               >
-                Discard extraction
+                {t("sponsored.discard")}
               </button>
               <button
                 className="primary-button"
@@ -131,15 +133,14 @@ export function BriefSection({
                 disabled={disabled || requirements.length === 0}
                 onClick={onAppend}
               >
-                Append {requirements.length} to checklist
+                {t("sponsored.appendCount", { count: requirements.length })}
               </button>
             </div>
           </header>
 
           {requirements.length === 0 ? (
             <p className="extraction-review__empty">
-              No explicit supported requirements were found. Add rules manually
-              if the brief needs interpretation.
+              {t("sponsored.noneFound")}
             </p>
           ) : (
             <ol className="extraction-candidates">
@@ -148,7 +149,7 @@ export function BriefSection({
                   <div className="extraction-candidate__heading">
                     <div>
                       <p className="mono-label">
-                        {getRequirementLabel(requirement.type)}
+                        {t(REQUIREMENT_LABEL_KEYS[requirement.type])}
                       </p>
                       <h4>{requirement.value}</h4>
                     </div>
@@ -157,19 +158,19 @@ export function BriefSection({
                       type="button"
                       disabled={disabled}
                       onClick={() => onRemoveCandidate(requirement.id)}
-                      aria-label={`Exclude extracted requirement ${requirement.description}`}
+                      aria-label={t("sponsored.excludeAria", { description: requirement.description })}
                     >
-                      Exclude
+                      {t("sponsored.exclude")}
                     </button>
                   </div>
                   <p>{requirement.description}</p>
                   {requirement.before_seconds !== null && (
                     <p className="extraction-candidate__deadline mono-label">
-                      DEADLINE / {requirement.before_seconds} SEC
+                      {t("sponsored.deadlineSec", { seconds: requirement.before_seconds })}
                     </p>
                   )}
                   <figure>
-                    <figcaption className="mono-label">SOURCE</figcaption>
+                    <figcaption className="mono-label">{t("sponsored.source")}</figcaption>
                     <blockquote>“{requirement.source_text}”</blockquote>
                   </figure>
                 </li>

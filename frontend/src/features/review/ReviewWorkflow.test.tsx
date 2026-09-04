@@ -178,7 +178,8 @@ describe("review workflow", () => {
     expect(screen.getByLabelText("Compliance status: Pass")).toBeVisible();
     expect(screen.getByLabelText("Compliance status: Fail")).toBeVisible();
     expect(screen.getByText("Mention promo code CREATOR25")).toBeVisible();
-    expect(screen.getByText("Required token CREATOR25 was not found.")).toBeVisible();
+    expect(screen.getByText('Required mention "AcmeVPN" was found.')).toBeVisible();
+    expect(screen.getByText('Required token "CREATOR25" was not found.')).toBeVisible();
   });
 
   it("presents timestamped evidence as an exact review artifact", async () => {
@@ -240,6 +241,13 @@ describe("review workflow", () => {
       ),
     ).toBeVisible();
     expect(screen.queryByText("INVALID_TIMESTAMP")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("SRT transcript")).toHaveValue(VALID_SRT);
+    expect(screen.getByLabelText("Campaign or review name")).toHaveValue(
+      "AcmeVPN September Campaign",
+    );
+    expect(screen.getByText("REQUIRED FORMAT")).toBeVisible();
+    expect(screen.getByText(/Hello, this is the first subtitle/)).toBeVisible();
+    expect(screen.getByText("Each cue begins with an index.")).toBeVisible();
   });
 
   it("reports a network failure without clearing the form", async () => {
@@ -425,9 +433,7 @@ describe("review workflow", () => {
     expect(
       await screen.findByLabelText("Compliance status: Fail"),
     ).toBeVisible();
-    expect(
-      screen.getByText("Semantic verification detected the prohibited claim."),
-    ).toBeVisible();
+    expect(screen.getByText("A prohibited claim was detected.")).toBeVisible();
     expect(screen.getByText("VERIFICATION / SEMANTIC")).toBeVisible();
     expect(
       screen.getByRole("button", { name: /generate fix/i }),
@@ -469,12 +475,10 @@ describe("review workflow", () => {
     await user.click(screen.getByRole("button", { name: "Analyze review" }));
 
     expect(
-      await screen.findByLabelText("Compliance status: Warning"),
+      await screen.findByLabelText("Compliance status: Review"),
     ).toBeVisible();
     expect(
-      screen.getByText(
-        "The required talking point could not be confirmed with enough certainty.",
-      ),
+      screen.getByText("The required meaning could not be confirmed with enough certainty."),
     ).toBeVisible();
     expect(
       screen.getByText("“Today's video is sponsored by AcmeVPN.”"),
@@ -541,9 +545,7 @@ describe("review workflow", () => {
     ).toBeVisible();
     expect(screen.getByLabelText("Compliance status: Pass")).toBeVisible();
     expect(
-      screen.getByText(
-        "Semantic verification temporarily unavailable. Retry this verification before publishing.",
-      ),
+      screen.getByText("Semantic verification could not be completed."),
     ).toBeVisible();
     expect(screen.getByText("Mention AcmeVPN")).toBeVisible();
     expect(

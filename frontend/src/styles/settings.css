@@ -1,0 +1,117 @@
+.settings-workspace {
+  max-width: 46rem;
+}
+
+.settings-preview {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.85rem 0 1rem;
+  border-top: var(--rule);
+}
+
+.settings-preview__tagline {
+  max-width: 38rem;
+  color: var(--color-muted-strong);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.settings-stack {
+  display: grid;
+  gap: var(--space-form-gap);
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 11.5rem) minmax(0, 1fr);
+  gap: 0.45rem 1.1rem;
+  align-items: center;
+}
+
+.settings-row > span,
+.settings-row > legend {
+  color: var(--color-graphite);
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.035em;
+}
+
+.settings-row fieldset,
+fieldset.settings-row {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.settings-mark-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  min-width: 0;
+}
+
+.settings-mark-controls .form-field {
+  width: 4.5rem;
+}
+
+.accent-options,
+.choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1rem;
+}
+
+.accent-options label,
+.choice-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  color: var(--color-ink);
+  font-size: 0.8125rem;
+}
+
+.accent-chip {
+  width: 0.7rem;
+  height: 0.7rem;
+  flex: 0 0 0.7rem;
+  border-radius: 1px;
+  background: var(--accent-terracotta);
+}
+
+.accent-chip[data-swatch="rust"] {
+  background: var(--accent-rust);
+}
+
+.accent-chip[data-swatch="olive"] {
+  background: var(--accent-olive);
+}
+
+.accent-chip[data-swatch="ink"] {
+  background: var(--accent-ink);
+}
+
+.accent-chip[data-swatch="ochre"] {
+  background: var(--accent-ochre);
+}
+
+.settings-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.55rem 0.85rem;
+  color: var(--color-muted-strong);
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 700px) {
+  .settings-row {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+}

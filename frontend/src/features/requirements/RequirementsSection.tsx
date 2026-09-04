@@ -1,4 +1,5 @@
 import type { RequirementDraft } from "../../types/compliance";
+import { useTranslation } from "../../i18n/useTranslation";
 import type { ReviewValidationErrors } from "../review/reviewValidation";
 import { SectionHeader } from "../shell/SectionHeader";
 import { RequirementEditor } from "./RequirementEditor";
@@ -20,13 +21,14 @@ export function RequirementsSection({
   onChange,
   onRemove,
 }: RequirementsSectionProps) {
+  const { t } = useTranslation();
   return (
     <section className="review-section" aria-labelledby="requirements-heading">
       <SectionHeader
-        step="03 / REQUIREMENTS"
-        title="Sponsorship requirements"
+        step={t("sponsored.reqStep")}
+        title={t("sponsored.reqTitle")}
         titleId="requirements-heading"
-        description="Define the deterministic checks this creator submission must pass."
+        description={t("sponsored.reqBody")}
         action={
           <button
             className="secondary-button"
@@ -34,22 +36,22 @@ export function RequirementsSection({
             disabled={disabled}
             onClick={onAdd}
           >
-            Add requirement
+            {t("sponsored.addRequirement")}
           </button>
         }
       />
 
       {errors.requirements && (
         <p className="section-error" id="requirements-error" role="alert">
-          {errors.requirements}
+          {t(errors.requirements)}
         </p>
       )}
 
       <div className="requirement-list" aria-describedby="requirements-error">
         {requirements.length === 0 ? (
           <div className="empty-line">
-            <span className="mono-label">NO RULES DEFINED</span>
-            <p>Add a requirement to establish the review checklist.</p>
+            <span className="mono-label">{t("sponsored.noRules")}</span>
+            <p>{t("sponsored.addToEstablish")}</p>
           </div>
         ) : (
           requirements.map((requirement, index) => (

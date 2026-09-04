@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PreflightFinding, ShortFormReport, ShortFormSuggestion } from "../../types/shortform";
+import { LocaleProvider } from "../../i18n/useTranslation";
 import { ShortFormReportView } from "./ShortFormReport";
 import type { FindingSuggestionState } from "./useShortFormSuggestions";
 
@@ -148,7 +149,10 @@ describe("ShortFormReportView", () => {
       />,
     );
     expect(screen.getByText("Review")).toBeVisible();
-    expect(screen.getByText("Main hook detected at 00:03.80.")).toBeVisible();
+    expect(
+      screen.getByText("The opening may take too long to establish the viewer payoff."),
+    ).toBeVisible();
+    expect(screen.queryByText("Main hook detected at 00:03.80.")).not.toBeInTheDocument();
   });
 
   it("renders CTA pass and missing CTA warning", () => {
@@ -172,7 +176,7 @@ describe("ShortFormReportView", () => {
         })}
       />,
     );
-    expect(screen.getByText("No clear call to action detected near the ending.")).toBeVisible();
+    expect(screen.getByText("No clear call to action was detected near the ending.")).toBeVisible();
   });
 
   it("renders a single estimated speech start without repeating the backend label", () => {
@@ -491,10 +495,11 @@ describe("ShortFormReportView", () => {
       />,
     );
     expect(screen.getByText("RECOMMENDED OPENING")).toBeVisible();
-    expect(screen.getByText("SUGGESTED OPENING")).toBeVisible();
+    expect(screen.queryByText("SUGGESTED OPENING")).not.toBeInTheDocument();
     expect(
       screen.getByText("Three settings are slowing down your PC, and one may already be enabled."),
     ).toBeVisible();
+    expect(screen.queryByText("The opening spends time on a generic introduction.")).not.toBeInTheDocument();
     expect(screen.getByText("Replace opening / 00:00.00–00:03.40")).toBeVisible();
     expect(screen.getByRole("button", { name: "Regenerate" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Dismiss suggestion" })).toBeVisible();
@@ -533,12 +538,18 @@ describe("ShortFormReportView", () => {
         suggestionStateFor={() =>
           suggestionState({
             phase: "error",
-            error: { message: "Suggestion generation is temporarily unavailable.", retryable: true },
+            error: {
+              code: "LLM_PROVIDER_UNAVAILABLE",
+              message: "Suggestion generation is temporarily unavailable.",
+              retryable: true,
+            },
           })
         }
       />,
     );
-    expect(screen.getByText("The viewer payoff arrives after a generic introduction.")).toBeVisible();
+    expect(
+      screen.getByText("The opening may take too long to establish the viewer payoff."),
+    ).toBeVisible();
     expect(screen.getByLabelText("Readiness score 88.89 out of 100")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retry" }));
     expect(onSuggest).toHaveBeenCalledWith("opening");
@@ -557,7 +568,9 @@ describe("ShortFormReportView", () => {
     expect(onSuggest).toHaveBeenCalledTimes(2);
     await user.click(screen.getByRole("button", { name: "Dismiss suggestion" }));
     expect(onDismiss).toHaveBeenCalledWith("opening");
-    expect(screen.getByText("The viewer payoff arrives after a generic introduction.")).toBeVisible();
+    expect(
+      screen.getByText("The opening may take too long to establish the viewer payoff."),
+    ).toBeVisible();
   });
 
   it("keeps opening and CTA suggestion states independent", () => {
@@ -618,8 +631,9 @@ describe("ShortFormReportView", () => {
       </div>,
     );
     expect(screen.getByText("RECOMMENDED CTA")).toBeVisible();
-    expect(screen.getByText("SUGGESTED CTA")).toBeVisible();
+    expect(screen.queryByText("SUGGESTED CTA")).not.toBeInTheDocument();
     expect(screen.getByText("Follow for part two.")).toBeVisible();
+    expect(screen.queryByText("The ending has no clear next action.")).not.toBeInTheDocument();
     expect(screen.getByText("Near ending / after 00:24.10")).toBeVisible();
     expect(screen.getByRole("button", { name: "Regenerate" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Dismiss suggestion" })).toBeVisible();
@@ -635,5 +649,151 @@ describe("ShortFormReportView", () => {
     expect(screen.getByLabelText("Readiness score 88.89 out of 100")).toBeInTheDocument();
     expect(screen.getByLabelText("Short-form timeline")).toBeInTheDocument();
     expect(screen.getByText("RESOLUTION")).toBeVisible();
+  });
+
+  it("localizes deterministic Short-Form copy in Spanish and leaves evidence intact", () => {
+    render(
+      <LocaleProvider locale="es">
+        <ShortFormReportView
+          report={report({
+            media: {
+              ...report().media,
+              duration_seconds: 26.8,
+              width: 576,
+              height: 1024,
+            },
+            findings: [
+              finding({
+                check_id: "resolution",
+                category: "format",
+                status: "warning",
+                title: "Resolution",
+                reason: "Resolution is below the preferred vertical HD target.",
+                recommendation: "Prefer at least 1080 × 1920 for TikTok.",
+                measurements: { width: 576, height: 1024 },
+              }),
+              finding({
+                check_id: "duration",
+                category: "format",
+                status: "pass",
+                title: "Duration",
+                reason: "Duration 26.80s is within the preferred TikTok window.",
+                measurements: { duration_seconds: 26.8 },
+              }),
+              finding({
+                check_id: "audio_track",
+                category: "audio",
+                status: "pass",
+                title: "Audio",
+                reason: "Audio track detected.",
+              }),
+              finding({
+                check_id: "dead_air",
+                category: "pacing",
+                status: "warning",
+                title: "Pacing review",
+                reason: "2.50 sec low-energy interval. 3 intervals found.",
+                recommendation: "Review this pacing gap before publishing.",
+                ranges: [
+                  { start_seconds: 12.25, end_seconds: 14.75, duration_seconds: 2.5 },
+                  { start_seconds: 15.75, end_seconds: 18.5, duration_seconds: 2.75 },
+                  { start_seconds: 19.5, end_seconds: 21.5, duration_seconds: 2 },
+                ],
+                measurements: { interval_count: 3, longest_seconds: 2.75 },
+              }),
+              finding({
+                check_id: "cta",
+                category: "cta",
+                status: "warning",
+                title: "Call to action",
+                reason: "No clear call to action detected near the ending.",
+                recommendation: "Consider giving the viewer an explicit next step.",
+                evidence_text: "Keep this English hook.",
+              }),
+            ],
+            priorities: [
+              {
+                rank: 1,
+                title: "Review pacing gap at 00:12.25",
+                check_id: "dead_air",
+                timestamp_seconds: 12.25,
+              },
+              {
+                rank: 2,
+                title: "Consider a closing CTA",
+                check_id: "cta",
+                timestamp_seconds: null,
+              },
+              {
+                rank: 3,
+                title: "Review resolution",
+                check_id: "resolution",
+                timestamp_seconds: null,
+              },
+            ],
+          })}
+        />
+      </LocaleProvider>,
+    );
+
+    expect(
+      screen.getByText("La resolución está por debajo del objetivo vertical HD preferido."),
+    ).toBeVisible();
+    expect(screen.getByText("Prefiere al menos 1080 × 1920 para TikTok.")).toBeVisible();
+    expect(
+      screen.getByText("La duración de 26.80 s está dentro de la ventana preferida de TikTok."),
+    ).toBeVisible();
+    expect(screen.getByText("Pista de audio detectada.")).toBeVisible();
+    expect(
+      screen.getByText("2.50 s de intervalo de baja energía. 3 intervalos encontrados."),
+    ).toBeVisible();
+    expect(screen.getByText("Revisa esta pausa de ritmo antes de publicar.")).toBeVisible();
+    expect(
+      screen.getByText("No se detectó una llamada a la acción clara cerca del final."),
+    ).toBeVisible();
+    expect(screen.getByText("Considera dar al espectador un siguiente paso explícito.")).toBeVisible();
+    expect(screen.getByText("Revisar pausa de ritmo en 00:12.25")).toBeVisible();
+    expect(screen.getByText("Considerar una llamada a la acción al final")).toBeVisible();
+    expect(screen.getByText("Revisar resolución")).toBeVisible();
+    expect(screen.getByText("Keep this English hook.")).toBeVisible();
+    expect(screen.queryByText("Resolution is below the preferred vertical HD target.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Audio track detected.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Review resolution")).not.toBeInTheDocument();
+  });
+
+  it("localizes suggestion controls and keeps generated creator wording unchanged", () => {
+    render(
+      <LocaleProvider locale="es">
+        <ShortFormReportView
+          report={report({
+            findings: [
+              finding({
+                check_id: "cta",
+                category: "cta",
+                status: "warning",
+                title: "Call to action",
+                reason: "No clear call to action detected near the ending.",
+                evidence_text: "And that's the final setting.",
+              }),
+            ],
+          })}
+          onSuggest={vi.fn()}
+          onDismissSuggestion={vi.fn()}
+          suggestionStateFor={() =>
+            suggestionState({ phase: "success", suggestion: ctaSuggestion })
+          }
+        />
+      </LocaleProvider>,
+    );
+    expect(screen.getByText("CTA RECOMENDADA")).toBeVisible();
+    expect(screen.getByText("UBICACIÓN")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Regenerar" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Descartar sugerencia" })).toBeVisible();
+    expect(screen.getByText("Follow for part two.")).toBeVisible();
+    expect(screen.getByText("And that's the final setting.")).toBeVisible();
+    expect(screen.getByText("No se detectó una llamada a la acción clara cerca del final.")).toBeVisible();
+    expect(screen.queryByText("RECOMMENDED CTA")).not.toBeInTheDocument();
+    expect(screen.queryByText("SUGGESTED CTA")).not.toBeInTheDocument();
+    expect(screen.queryByText("The ending has no clear next action.")).not.toBeInTheDocument();
   });
 });

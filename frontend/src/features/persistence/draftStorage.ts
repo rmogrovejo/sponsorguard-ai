@@ -1,3 +1,4 @@
+import type { ShortFormPlatform } from "../../types/shortform";
 import {
   DRAFT_STORAGE_KEY,
 } from "./draftKeys";
@@ -32,10 +33,13 @@ function browserStorage(): Storage | null {
   }
 }
 
-export function loadDraft(store: Storage | null = browserStorage()): DraftLoadResult {
+export function loadDraft(
+  store: Storage | null = browserStorage(),
+  defaultPlatform: ShortFormPlatform = "tiktok",
+): DraftLoadResult {
   if (store === null) {
     return {
-      draft: emptyDraft(),
+      draft: emptyDraft(defaultPlatform),
       restored: false,
       invalidDiscarded: false,
       storageAvailable: false,
@@ -46,7 +50,7 @@ export function loadDraft(store: Storage | null = browserStorage()): DraftLoadRe
     raw = store.getItem(DRAFT_STORAGE_KEY);
   } catch {
     return {
-      draft: emptyDraft(),
+      draft: emptyDraft(defaultPlatform),
       restored: false,
       invalidDiscarded: false,
       storageAvailable: false,
@@ -54,7 +58,7 @@ export function loadDraft(store: Storage | null = browserStorage()): DraftLoadRe
   }
   if (raw === null || raw === "") {
     return {
-      draft: emptyDraft(),
+      draft: emptyDraft(defaultPlatform),
       restored: false,
       invalidDiscarded: false,
       storageAvailable: true,
@@ -68,7 +72,7 @@ export function loadDraft(store: Storage | null = browserStorage()): DraftLoadRe
       // Quarantine is best-effort; the app still starts empty.
     }
     return {
-      draft: emptyDraft(),
+      draft: emptyDraft(defaultPlatform),
       restored: false,
       invalidDiscarded: true,
       storageAvailable: true,
@@ -76,7 +80,7 @@ export function loadDraft(store: Storage | null = browserStorage()): DraftLoadRe
   }
   return {
     draft: parsed,
-    restored: isMeaningfulDraft(parsed),
+    restored: isMeaningfulDraft(parsed, defaultPlatform),
     invalidDiscarded: false,
     storageAvailable: true,
   };

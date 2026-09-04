@@ -1,39 +1,50 @@
 import type { ProductModule } from "./productModules";
+import { useTranslation } from "../../i18n/useTranslation";
 
 interface ProductNavProps {
   module: ProductModule;
   onChange: (module: ProductModule) => void;
+  productName?: string;
 }
 
-export function ProductNav({ module, onChange }: ProductNavProps) {
+export function ProductNav({
+  module,
+  onChange,
+  productName = "CreatorPreflight",
+}: ProductNavProps) {
+  const { t } = useTranslation();
   return (
-    <nav className="product-rail" aria-label="CreatorPreflight">
-      <p className="product-rail__label mono-label">PRE-FLIGHT</p>
+    <nav className="product-rail" aria-label={productName}>
+      <p className="product-rail__label mono-label">{t("nav.preflight")}</p>
       <div className="product-nav">
         <button
           type="button"
           aria-current={module === "shortform" ? "page" : undefined}
           onClick={() => onChange("shortform")}
         >
-          <strong>Short-Form</strong>
-          <span>TikTok · Shorts · Reels</span>
+          <strong>{t("nav.shortform")}</strong>
+          <span>{t("nav.shortformDetail")}</span>
         </button>
         <button
           type="button"
           aria-current={module === "sponsored" ? "page" : undefined}
           onClick={() => onChange("sponsored")}
         >
-          <strong>Sponsored Content</strong>
-          <span>SponsorGuard compliance</span>
+          <strong>{t("nav.sponsored")}</strong>
+          <span>{t("nav.sponsoredDetail")}</span>
         </button>
         <div className="product-nav__placeholder">
-          <strong>Reviews</strong>
-          <span>History later</span>
+          <strong>{t("nav.reviews")}</strong>
+          <span>{t("nav.reviewsDetail")}</span>
         </div>
-        <div className="product-nav__placeholder">
-          <strong>Settings</strong>
-          <span>Workspace later</span>
-        </div>
+        <button
+          type="button"
+          aria-current={module === "settings" ? "page" : undefined}
+          onClick={() => onChange("settings")}
+        >
+          <strong>{t("nav.settings")}</strong>
+          <span>{t("nav.settingsDetail")}</span>
+        </button>
       </div>
     </nav>
   );

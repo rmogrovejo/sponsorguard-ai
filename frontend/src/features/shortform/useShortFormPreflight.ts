@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 
+import type { MessageKey } from "../../i18n/translations";
 import {
   analyzeShortForm,
   ShortFormApiError,
@@ -58,7 +59,7 @@ function inspectLocalVideo(file: File): Promise<LocalVideoSelection> {
 export function useShortFormPreflight(initialPlatform: ShortFormPlatform = "tiktok") {
   const [platform, setPlatform] = useState<ShortFormPlatform>(initialPlatform);
   const [selection, setSelection] = useState<LocalVideoSelection | null>(null);
-  const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [selectionError, setSelectionError] = useState<MessageKey | null>(null);
   const [phase, setPhase] = useState<ShortFormPhase>("idle");
   const [requestError, setRequestError] = useState<ShortFormRequestError | null>(null);
   const [report, setReport] = useState<ShortFormReport | null>(null);
@@ -75,12 +76,12 @@ export function useShortFormPreflight(initialPlatform: ShortFormPlatform = "tikt
     }
     if (!file.name.toLowerCase().endsWith(".mp4")) {
       setSelection(null);
-      setSelectionError("Choose a file with the .mp4 extension.");
+      setSelectionError("shortform.mp4Only");
       return;
     }
     if (file.size > SHORTFORM_MAX_UPLOAD_BYTES) {
       setSelection(null);
-      setSelectionError("This video is too large for a single preflight.");
+      setSelectionError("shortform.tooLarge");
       return;
     }
     if (typeof URL.createObjectURL !== "function") {

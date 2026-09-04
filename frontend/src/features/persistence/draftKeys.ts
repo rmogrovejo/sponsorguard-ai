@@ -1,7 +1,9 @@
+import { SETTINGS_STORAGE_KEY as SETTINGS_KEY } from "../settings/settingsKeys";
+
 export const DRAFT_STORAGE_KEY = "creatorpreflight:draft:v1";
 
-/** Reserved for a later Settings milestone. Do not store draft data here. */
-export const SETTINGS_STORAGE_KEY = "creatorpreflight:settings:v1";
+/** Independent from drafts. Defined in settingsKeys.ts. */
+export const SETTINGS_STORAGE_KEY = SETTINGS_KEY;
 
 export const DRAFT_VERSION = 1;
 export const AUTOSAVE_DEBOUNCE_MS = 400;

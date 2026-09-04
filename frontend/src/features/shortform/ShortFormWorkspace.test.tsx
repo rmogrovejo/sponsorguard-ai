@@ -307,7 +307,7 @@ describe("ShortFormWorkspace", () => {
     await user.click(await screen.findByRole("button", { name: "Suggest CTA" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("temporarily unavailable");
     expect(screen.getByLabelText("Readiness score 83.33 out of 100")).toBeInTheDocument();
-    expect(screen.getByText("No clear call to action detected near the ending.")).toBeVisible();
+    expect(screen.getByText("No clear call to action was detected near the ending.")).toBeVisible();
     expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
   });
 
