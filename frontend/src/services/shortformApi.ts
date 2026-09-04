@@ -1,7 +1,7 @@
 import type { ShortFormPlatform, ShortFormReport } from "../types/shortform";
 
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
-const DEFAULT_TIMEOUT_MS = 45_000;
+const DEFAULT_TIMEOUT_MS = 90_000;
 
 export class ShortFormApiError extends Error {
   readonly code: string;
@@ -111,5 +111,15 @@ function parseReport(value: unknown): ShortFormReport {
       true,
     );
   }
-  return value as unknown as ShortFormReport;
+  const report = value as unknown as ShortFormReport;
+  return {
+    ...report,
+    findings: report.findings.map((item) => ({
+      ...item,
+      evidence_text: item.evidence_text ?? null,
+    })),
+    speech: report.speech ?? null,
+    speech_segments: Array.isArray(report.speech_segments) ? report.speech_segments : [],
+    priorities: Array.isArray(report.priorities) ? report.priorities : [],
+  };
 }

@@ -8,6 +8,7 @@ from app.domain.compliance import (
     calculate_verification_coverage,
 )
 from app.domain.media import FiniteSeconds, MediaInspection, TimeRange
+from app.domain.shortform_speech import ReviewPriority, SpeechActivity, SpeechSegment
 
 
 class ShortFormPlatform(StrEnum):
@@ -27,7 +28,10 @@ class PreflightCategory(StrEnum):
     MEDIA = "media"
     FORMAT = "format"
     AUDIO = "audio"
+    SPEECH = "speech"
+    OPENING = "opening"
     PACING = "pacing"
+    CTA = "cta"
 
 
 class SilenceAnalysisConfig(BaseModel):
@@ -107,6 +111,7 @@ class PreflightFinding(BaseModel):
     title: Annotated[str, StringConstraints(min_length=1, max_length=120)]
     reason: Annotated[str, StringConstraints(min_length=1, max_length=1_000)]
     recommendation: str | None = Field(default=None, max_length=1_000)
+    evidence_text: str | None = Field(default=None, max_length=2_000)
     ranges: tuple[TimeRange, ...] = ()
     measurements: dict[str, float | int | str] | None = None
 
@@ -131,10 +136,21 @@ class ShortFormReport(BaseModel):
     media: MediaInspection
     summary: PreflightSummary
     findings: tuple[PreflightFinding, ...]
+    speech: SpeechActivity | None = None
+    speech_segments: tuple[SpeechSegment, ...] = ()
+    priorities: tuple[ReviewPriority, ...] = ()
 
 
 def get_platform_profile(platform: ShortFormPlatform) -> PlatformProfile:
     return PLATFORM_PROFILES[platform]
+
+
+# Hook decisions map to report statuses:
+#   STRONG → PASS, REVIEW → WARNING, WEAK → WARNING, NOT_EVALUATED → NOT_EVALUATED
+# CTA decisions map to report statuses:
+#   FOUND → PASS, NOT_FOUND → WARNING, REVIEW → WARNING, NOT_EVALUATED → NOT_EVALUATED
+# WEAK and missing CTA stay WARNING. They are recommendations, not hard failures.
+# Readiness uses PASS=1, WARNING=0.5, FAIL=0. NOT_EVALUATED is excluded.
 
 
 def summarize_preflight(findings: tuple[PreflightFinding, ...]) -> PreflightSummary:

@@ -5,7 +5,9 @@ from app.domain.extraction import BriefExtractionOutput
 from app.domain.fixes import FixProviderOutput
 from app.domain.requirements import Requirement
 from app.domain.semantic import SemanticRequirement, SemanticVerificationOutput
+from app.domain.shortform_speech import ShortFormProviderDocument
 from app.domain.transcript import TranscriptSegment
+from app.integrations.llm.shortform_request import ShortFormSemanticRequest
 
 
 class LLMRequirementExtractor(Protocol):
@@ -53,3 +55,18 @@ class FixGenerator(Protocol):
         requirement: Requirement,
         transcript_segments: Sequence[TranscriptSegment],
     ) -> FixProviderOutput: ...
+
+
+class ShortFormSemanticAnalyzer(Protocol):
+    """Narrow provider boundary for one bounded short-form hook and CTA review."""
+
+    @property
+    def provider_name(self) -> str: ...
+
+    @property
+    def model_name(self) -> str: ...
+
+    async def analyze_shortform(
+        self,
+        request: ShortFormSemanticRequest,
+    ) -> ShortFormProviderDocument: ...

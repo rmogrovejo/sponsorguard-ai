@@ -6,7 +6,7 @@ from app.core.config import Settings
 from app.schemas.errors import ErrorResponse
 from app.schemas.shortform import ShortFormAnalyzeResponse
 from app.services.media_errors import MediaInspectionError, MediaInspectionErrorCode
-from app.services.shortform_preflight import analyze_shortform_video, parse_platform
+from app.services.shortform_preflight import parse_platform, run_shortform_preflight
 from app.services.temp_media import temporary_upload
 
 
@@ -41,10 +41,11 @@ async def analyze_shortform(
         video,
         max_bytes=settings.shortform_max_upload_bytes,
     ) as (path, display_name, size_bytes):
-        report = analyze_shortform_video(
+        report = await run_shortform_preflight(
             path,
             platform=resolved_platform,
             display_filename=display_name,
             size_bytes=size_bytes,
+            analyzer=request.app.state.shortform_analyzer,
         )
     return ShortFormAnalyzeResponse.from_domain(report)

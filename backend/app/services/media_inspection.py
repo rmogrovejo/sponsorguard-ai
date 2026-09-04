@@ -8,9 +8,13 @@ from pathlib import Path
 import av
 from av.error import FFmpegError
 
+from dataclasses import dataclass
+
 from app.domain.media import MediaInspection, TimeRange
 from app.domain.shortform import SilenceAnalysisConfig
+from app.domain.shortform_speech import SpeechActivity, SpeechActivityConfig
 from app.services.media_errors import MediaInspectionError, MediaInspectionErrorCode
+from app.services.speech_activity import detect_speech_activity
 
 
 SUPPORTED_VIDEO_SUFFIXES = {".mp4"}
@@ -78,6 +82,38 @@ def inspect_video_file(
         container.close()
 
 
+@dataclass(frozen=True, slots=True)
+class AudioInspection:
+    """One decoded PCM buffer plus deterministic silence and activity metrics."""
+
+    samples: list[float]
+    sample_rate: int
+    silence_ranges: tuple[TimeRange, ...]
+    activity: SpeechActivity
+
+
+def inspect_audio_file(
+    path: Path,
+    *,
+    silence: SilenceAnalysisConfig,
+    speech: SpeechActivityConfig,
+    duration_seconds: float | None = None,
+) -> AudioInspection:
+    """Decode audio once for silence detection and speech-activity estimates."""
+
+    samples = decode_mono_samples(path, sample_rate=silence.sample_rate)
+    return AudioInspection(
+        samples=samples,
+        sample_rate=silence.sample_rate,
+        silence_ranges=find_low_energy_ranges(samples, silence),
+        activity=detect_speech_activity(
+            samples,
+            speech,
+            duration_seconds=duration_seconds,
+        ),
+    )
+
+
 def detect_low_energy_intervals(
     path: Path,
     *,
@@ -85,6 +121,13 @@ def detect_low_energy_intervals(
 ) -> tuple[TimeRange, ...]:
     """Return grounded low-energy ranges from decoded audio samples."""
 
+    return find_low_energy_ranges(
+        decode_mono_samples(path, sample_rate=config.sample_rate),
+        config,
+    )
+
+
+def decode_mono_samples(path: Path, *, sample_rate: int) -> list[float]:
     try:
         container = av.open(str(path), mode="r")
     except (FFmpegError, OSError, ValueError) as error:
@@ -99,14 +142,17 @@ def detect_low_energy_intervals(
             None,
         )
         if audio_stream is None:
-            return ()
-        samples = _decode_mono_samples(container, audio_stream, config.sample_rate)
+            raise MediaInspectionError(
+                "The audio stream could not be decoded.",
+                code=MediaInspectionErrorCode.CORRUPT_MEDIA,
+            )
+        samples = _decode_mono_samples(container, audio_stream, sample_rate)
         if not samples:
             raise MediaInspectionError(
                 "The audio stream could not be decoded.",
                 code=MediaInspectionErrorCode.CORRUPT_MEDIA,
             )
-        return find_low_energy_ranges(samples, config)
+        return samples
     finally:
         container.close()
 

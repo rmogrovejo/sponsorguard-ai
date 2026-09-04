@@ -9,6 +9,7 @@ from app.domain.shortform import (
     ShortFormPlatform,
     ShortFormReport,
 )
+from app.domain.shortform_speech import ReviewPriority, SpeechActivity, SpeechSegment
 
 
 class TimeRangeResponse(BaseModel):
@@ -62,6 +63,7 @@ class PreflightFindingResponse(BaseModel):
     title: str
     reason: str
     recommendation: str | None
+    evidence_text: str | None
     ranges: tuple[TimeRangeResponse, ...]
     measurements: dict[str, float | int | str] | None
 
@@ -74,8 +76,65 @@ class PreflightFindingResponse(BaseModel):
             title=finding.title,
             reason=finding.reason,
             recommendation=finding.recommendation,
+            evidence_text=finding.evidence_text,
             ranges=tuple(TimeRangeResponse.from_domain(item) for item in finding.ranges),
             measurements=finding.measurements,
+        )
+
+
+class SpeechActivityResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    audio_start_seconds: float | None
+    activity_start_seconds: float | None
+    has_usable_signal: bool
+    method: str
+    label: str
+
+    @classmethod
+    def from_domain(cls, value: SpeechActivity) -> "SpeechActivityResponse":
+        return cls(
+            audio_start_seconds=value.audio_start_seconds,
+            activity_start_seconds=value.activity_start_seconds,
+            has_usable_signal=value.has_usable_signal,
+            method=value.method.value,
+            label=value.label,
+        )
+
+
+class SpeechSegmentResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    index: int
+    start_seconds: float
+    end_seconds: float
+    text: str
+
+    @classmethod
+    def from_domain(cls, value: SpeechSegment) -> "SpeechSegmentResponse":
+        return cls(
+            index=value.index,
+            start_seconds=value.start_seconds,
+            end_seconds=value.end_seconds,
+            text=value.text,
+        )
+
+
+class ReviewPriorityResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    rank: int
+    title: str
+    check_id: str
+    timestamp_seconds: float | None
+
+    @classmethod
+    def from_domain(cls, value: ReviewPriority) -> "ReviewPriorityResponse":
+        return cls(
+            rank=value.rank,
+            title=value.title,
+            check_id=value.check_id,
+            timestamp_seconds=value.timestamp_seconds,
         )
 
 
@@ -99,6 +158,9 @@ class ShortFormAnalyzeResponse(BaseModel):
     media: MediaInspectionResponse
     summary: PreflightSummaryResponse
     findings: tuple[PreflightFindingResponse, ...]
+    speech: SpeechActivityResponse | None
+    speech_segments: tuple[SpeechSegmentResponse, ...]
+    priorities: tuple[ReviewPriorityResponse, ...]
 
     @classmethod
     def from_domain(cls, report: ShortFormReport) -> "ShortFormAnalyzeResponse":
@@ -117,6 +179,17 @@ class ShortFormAnalyzeResponse(BaseModel):
             ),
             findings=tuple(
                 PreflightFindingResponse.from_domain(item) for item in report.findings
+            ),
+            speech=(
+                SpeechActivityResponse.from_domain(report.speech)
+                if report.speech is not None
+                else None
+            ),
+            speech_segments=tuple(
+                SpeechSegmentResponse.from_domain(item) for item in report.speech_segments
+            ),
+            priorities=tuple(
+                ReviewPriorityResponse.from_domain(item) for item in report.priorities
             ),
         )
 

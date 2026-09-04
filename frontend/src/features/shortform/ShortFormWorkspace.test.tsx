@@ -19,15 +19,35 @@ const REPORT: ShortFormReport = {
     has_audio: true,
   },
   summary: {
-    total: 6,
-    evaluated: 6,
+    total: 9,
+    evaluated: 9,
     not_evaluated: 0,
-    passed: 5,
-    warnings: 1,
+    passed: 6,
+    warnings: 3,
     failed: 0,
-    readiness_score: 91.67,
+    readiness_score: 83.33,
     verification_coverage: 100,
   },
+  speech: {
+    audio_start_seconds: 0.6,
+    activity_start_seconds: 0.6,
+    has_usable_signal: true,
+    method: "rms_energy_estimate",
+    label: "VOICE / SPEECH ACTIVITY ESTIMATE",
+  },
+  speech_segments: [
+    {
+      index: 1,
+      start_seconds: 3.8,
+      end_seconds: 6.2,
+      text: "Three settings are killing your FPS.",
+    },
+  ],
+  priorities: [
+    { rank: 1, title: "Strengthen opening", check_id: "opening", timestamp_seconds: 3.8 },
+    { rank: 2, title: "Review pacing gap at 00:14.20", check_id: "dead_air", timestamp_seconds: 14.2 },
+    { rank: 3, title: "Consider a closing CTA", check_id: "cta", timestamp_seconds: null },
+  ],
   findings: [
     {
       check_id: "orientation",
@@ -36,6 +56,7 @@ const REPORT: ShortFormReport = {
       title: "Orientation",
       reason: "9:16 portrait frame detected (1080 × 1920).",
       recommendation: null,
+      evidence_text: null,
       ranges: [],
       measurements: { width: 1080, height: 1920 },
     },
@@ -46,6 +67,7 @@ const REPORT: ShortFormReport = {
       title: "Resolution",
       reason: "Vertical HD frame detected.",
       recommendation: null,
+      evidence_text: null,
       ranges: [],
       measurements: null,
     },
@@ -56,6 +78,7 @@ const REPORT: ShortFormReport = {
       title: "Duration",
       reason: "Duration 18.40s is within the preferred TikTok window.",
       recommendation: null,
+      evidence_text: null,
       ranges: [],
       measurements: { duration_seconds: 18.4 },
     },
@@ -66,8 +89,31 @@ const REPORT: ShortFormReport = {
       title: "Audio",
       reason: "Audio track detected.",
       recommendation: null,
+      evidence_text: null,
       ranges: [],
       measurements: null,
+    },
+    {
+      check_id: "speech_activity",
+      category: "speech",
+      status: "pass",
+      title: "Speech",
+      reason: "VOICE / SPEECH ACTIVITY ESTIMATE 00:00.60.",
+      recommendation: null,
+      evidence_text: null,
+      ranges: [],
+      measurements: { activity_start_seconds: 0.6 },
+    },
+    {
+      check_id: "opening",
+      category: "opening",
+      status: "warning",
+      title: "Opening",
+      reason: "Main hook detected at 00:03.80. The video begins with a generic introduction before establishing the viewer payoff.",
+      recommendation: "Establish the viewer-facing subject or payoff earlier in the opening.",
+      evidence_text: "Three settings are killing your FPS.",
+      ranges: [{ start_seconds: 3.8, end_seconds: 6.2, duration_seconds: 2.4 }],
+      measurements: { hook_start_seconds: 3.8, hook_delay_seconds: 3.2 },
     },
     {
       check_id: "dead_air",
@@ -76,8 +122,20 @@ const REPORT: ShortFormReport = {
       title: "Pacing review",
       reason: "2.42 sec low-energy interval.",
       recommendation: "Review this pacing gap before publishing.",
+      evidence_text: null,
       ranges: [{ start_seconds: 14.2, end_seconds: 16.62, duration_seconds: 2.42 }],
       measurements: { interval_count: 1 },
+    },
+    {
+      check_id: "cta",
+      category: "cta",
+      status: "warning",
+      title: "Call to action",
+      reason: "No clear call to action detected near the ending.",
+      recommendation: "Consider giving the viewer an explicit next step.",
+      evidence_text: null,
+      ranges: [],
+      measurements: { cta_decision: "not_found" },
     },
   ],
 };
@@ -161,9 +219,11 @@ describe("ShortFormWorkspace", () => {
     expect(await screen.findByText("READINESS")).toBeInTheDocument();
     expect(screen.getByText("Vertical HD frame detected.")).toBeVisible();
     expect(screen.getByText(/18.40 sec/)).toBeVisible();
-    expect(screen.getByText(/00:14.20 → 00:16.62/)).toBeVisible();
-    expect(screen.getByLabelText("Pacing timeline")).toBeInTheDocument();
+    expect(screen.getByText(/00:14.20–00:16.62/)).toBeVisible();
+    expect(screen.getByLabelText("Short-form timeline")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "TikTok" })).toBeVisible();
+    expect(screen.getByText("Three settings are killing your FPS.")).toBeVisible();
+    expect(screen.getByText("Strengthen opening")).toBeVisible();
   });
 
   it("shows a controlled backend failure", async () => {

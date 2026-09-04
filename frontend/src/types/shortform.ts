@@ -2,6 +2,15 @@ export type ShortFormPlatform = "tiktok" | "youtube_shorts" | "instagram_reels";
 
 export type PreflightStatus = "pass" | "warning" | "fail" | "not_evaluated";
 
+export type PreflightCategory =
+  | "media"
+  | "format"
+  | "audio"
+  | "speech"
+  | "opening"
+  | "pacing"
+  | "cta";
+
 export interface TimeRange {
   start_seconds: number;
   end_seconds: number;
@@ -21,13 +30,36 @@ export interface MediaInspection {
 
 export interface PreflightFinding {
   check_id: string;
-  category: "media" | "format" | "audio" | "pacing";
+  category: PreflightCategory;
   status: PreflightStatus;
   title: string;
   reason: string;
   recommendation: string | null;
+  evidence_text: string | null;
   ranges: TimeRange[];
   measurements: Record<string, number | string> | null;
+}
+
+export interface SpeechActivity {
+  audio_start_seconds: number | null;
+  activity_start_seconds: number | null;
+  has_usable_signal: boolean;
+  method: string;
+  label: string;
+}
+
+export interface SpeechSegment {
+  index: number;
+  start_seconds: number;
+  end_seconds: number;
+  text: string;
+}
+
+export interface ReviewPriority {
+  rank: number;
+  title: string;
+  check_id: string;
+  timestamp_seconds: number | null;
 }
 
 export interface ShortFormReport {
@@ -44,6 +76,9 @@ export interface ShortFormReport {
     verification_coverage: number;
   };
   findings: PreflightFinding[];
+  speech: SpeechActivity | null;
+  speech_segments: SpeechSegment[];
+  priorities: ReviewPriority[];
 }
 
 export interface LocalVideoSelection {

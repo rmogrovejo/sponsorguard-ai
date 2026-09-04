@@ -17,7 +17,11 @@ from app.integrations.llm.factory import (
     create_fix_generator,
     create_requirement_extractor,
     create_semantic_verifier,
+    create_shortform_analyzer,
 )
+from app.integrations.llm.gemini_shortform_provider import GeminiShortFormAnalyzer
+from app.integrations.llm.shortform_request import ShortFormSemanticRequest
+from app.domain.media import TimeRange
 from app.integrations.llm.gemini_provider import GeminiRequirementExtractor
 from app.integrations.llm.gemini_fix_provider import GeminiFixGenerator
 from app.integrations.llm.gemini_semantic_provider import GeminiSemanticVerifier
@@ -187,6 +191,34 @@ def test_openai_provider_and_provider_specific_default_remain_supported() -> Non
     assert isinstance(provider, OpenAIRequirementExtractor)
     assert provider.provider_name == "openai"
     assert provider.model_name == "gpt-5.6-luna"
+
+
+def test_gemini_shortform_analyzer_uses_semantic_timeout_configuration() -> None:
+    analyzer = create_shortform_analyzer(
+        Settings(
+            llm_provider="gemini",
+            llm_model="gemini-configured-model",
+            gemini_api_key="test-placeholder-not-a-real-key",
+            llm_timeout_seconds=11,
+            semantic_timeout_seconds=73,
+        )
+    )
+
+    assert isinstance(analyzer, GeminiShortFormAnalyzer)
+    assert analyzer.model_name == "gemini-configured-model"
+    assert analyzer._timeout_seconds == 73  # type: ignore[attr-defined]
+
+
+def test_missing_key_keeps_shortform_analysis_behind_controlled_boundary() -> None:
+    analyzer = create_shortform_analyzer(Settings())
+    request = ShortFormSemanticRequest(
+        opening=TimeRange(start_seconds=0.0, end_seconds=8.0),
+        ending=TimeRange(start_seconds=12.0, end_seconds=15.0),
+        video_duration_seconds=15.0,
+    )
+
+    with pytest.raises(LLMConfigurationError, match="not configured"):
+        asyncio.run(analyzer.analyze_shortform(request))
 
 
 def test_provider_keys_are_excluded_from_settings_representation() -> None:

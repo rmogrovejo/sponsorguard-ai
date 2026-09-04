@@ -1,9 +1,11 @@
-import type { PreflightFinding, ShortFormReport } from "../../types/shortform";
+import type { PreflightFinding, PreflightStatus, ReviewPriority, ShortFormReport } from "../../types/shortform";
 import { PLATFORM_OPTIONS } from "../../types/shortform";
 import { formatTimestamp, formatTimestampPrecise } from "../../utils/timestamp";
 
 interface ShortFormReportViewProps {
   report: ShortFormReport;
+  onRetry?: () => void;
+  retrying?: boolean;
 }
 
 const STATUS_LABELS = {
@@ -17,15 +19,42 @@ function findingById(report: ShortFormReport, checkId: string): PreflightFinding
   return report.findings.find((item) => item.check_id === checkId);
 }
 
-export function ShortFormReportView({ report }: ShortFormReportViewProps) {
+function isSemanticProviderGap(finding?: PreflightFinding): boolean {
+  if (!finding || finding.status !== "not_evaluated") return false;
+  const reason = finding.reason.toLowerCase();
+  if (reason.includes("no usable speech") || reason.includes("no audio")) return false;
+  return (
+    reason.includes("language-model") ||
+    reason.includes("provider failed") ||
+    reason.includes("provider returned invalid") ||
+    reason.includes("not configured") ||
+    reason.includes("speech analysis is unavailable") ||
+    reason.includes("were not evaluated")
+  );
+}
+
+function pixelSize(finding?: PreflightFinding): string | null {
+  const width = finding?.measurements?.width;
+  const height = finding?.measurements?.height;
+  if (typeof width === "number" && typeof height === "number") {
+    return `${width} × ${height}`;
+  }
+  return null;
+}
+
+export function ShortFormReportView({ report, onRetry, retrying = false }: ShortFormReportViewProps) {
   const platformLabel =
     PLATFORM_OPTIONS.find((item) => item.value === report.platform)?.label ?? report.platform;
-  const format = findingById(report, "orientation");
+  const orientation = findingById(report, "orientation");
   const resolution = findingById(report, "resolution");
   const duration = findingById(report, "duration");
   const audio = findingById(report, "audio_track");
+  const speech = findingById(report, "speech_activity");
+  const opening = findingById(report, "opening");
   const pacing = findingById(report, "dead_air");
+  const cta = findingById(report, "cta");
   const score = report.summary.readiness_score;
+  const semanticNotice = isSemanticProviderGap(opening) && isSemanticProviderGap(cta);
 
   return (
     <section className="compliance-report shortform-report" aria-labelledby="shortform-report-heading">
@@ -33,7 +62,7 @@ export function ShortFormReportView({ report }: ShortFormReportViewProps) {
         <div className="report-header__copy">
           <p className="mono-label">SHORT-FORM PREFLIGHT / {platformLabel.toUpperCase()}</p>
           <h2 id="shortform-report-heading">{platformLabel}</h2>
-          <p>Deterministic media findings from the uploaded clip and selected platform preset.</p>
+          <p>Format, speech, opening, pacing, and closing-action findings from the selected preset.</p>
         </div>
         <div className="report-metrics">
           <div
@@ -62,7 +91,10 @@ export function ShortFormReportView({ report }: ShortFormReportViewProps) {
       </header>
 
       <div className="shortform-checks">
-        <CheckBlock title="Format" finding={format} extra={resolution} />
+        {semanticNotice && (
+          <SemanticNotice onRetry={onRetry} retrying={retrying} />
+        )}
+        <FormatSection orientation={orientation} resolution={resolution} />
         <CheckBlock
           title="Duration"
           finding={duration}
@@ -73,21 +105,98 @@ export function ShortFormReportView({ report }: ShortFormReportViewProps) {
           }
         />
         <CheckBlock title="Audio" finding={audio} />
-        <PacingBlock finding={pacing} durationSeconds={report.media.duration_seconds} />
+        <SpeechBlock finding={speech} />
+        <SemanticBlock
+          title="Opening"
+          finding={opening}
+          concise={semanticNotice}
+          fallback="Retry preflight to evaluate the opening."
+        />
+        <PacingBlock finding={pacing} />
+        <SemanticBlock
+          title="Call to action"
+          finding={cta}
+          concise={semanticNotice}
+          fallback="Retry preflight to evaluate the call to action."
+        />
+        <ReportTimeline report={report} />
+        <PriorityList priorities={report.priorities} />
       </div>
     </section>
+  );
+}
+
+function Status({ status }: { status: PreflightStatus }) {
+  return <span className={`status-label status-label--${status}`}>{STATUS_LABELS[status]}</span>;
+}
+
+function SemanticNotice({
+  onRetry,
+  retrying,
+}: {
+  onRetry?: () => void;
+  retrying: boolean;
+}) {
+  return (
+    <article className="shortform-check shortform-notice" aria-label="Semantic review partially unavailable">
+      <header>
+        <p className="mono-label">SEMANTIC REVIEW</p>
+        <span className="status-label status-label--not_evaluated">Partially unavailable</span>
+      </header>
+      <p>Format, audio, duration, and pacing checks completed. Opening and CTA could not be evaluated.</p>
+      {onRetry && (
+        <button className="secondary-button" type="button" disabled={retrying} onClick={onRetry}>
+          Retry preflight
+        </button>
+      )}
+    </article>
+  );
+}
+
+function FormatSection({
+  orientation,
+  resolution,
+}: {
+  orientation?: PreflightFinding;
+  resolution?: PreflightFinding;
+}) {
+  if (!orientation && !resolution) return null;
+  return (
+    <article className="shortform-check">
+      <header>
+        <p className="mono-label">FORMAT</p>
+      </header>
+      {orientation && <FormatRow label="Orientation" finding={orientation} />}
+      {resolution && <FormatRow label="Resolution" finding={resolution} />}
+    </article>
+  );
+}
+
+function FormatRow({ label, finding }: { label: string; finding: PreflightFinding }) {
+  const size = pixelSize(finding);
+  const compactPortrait = finding.reason.includes("9:16 portrait");
+  return (
+    <div className="shortform-subfinding">
+      <header>
+        <p className="mono-label">{label.toUpperCase()}</p>
+        <Status status={finding.status} />
+      </header>
+      <p className="shortform-subfinding__lead">
+        {compactPortrait ? "9:16 portrait" : finding.reason}
+      </p>
+      {size && <p className="mono-label">{size}</p>}
+      {finding.recommendation && <p>{finding.recommendation}</p>}
+    </div>
   );
 }
 
 function CheckBlock({
   title,
   finding,
-  extra,
   detail,
 }: {
   title: string;
   finding?: PreflightFinding;
-  extra?: PreflightFinding;
   detail?: string | null;
 }) {
   if (!finding) return null;
@@ -95,77 +204,227 @@ function CheckBlock({
     <article className="shortform-check">
       <header>
         <p className="mono-label">{title.toUpperCase()}</p>
-        <span className={`status-label status-label--${finding.status}`}>
-          {STATUS_LABELS[finding.status]}
-        </span>
+        <Status status={finding.status} />
       </header>
-      <h3>{finding.title}</h3>
+      {detail && <p className="mono-label shortform-measure">{detail}</p>}
       <p>{finding.reason}</p>
-      {detail && <p className="mono-label">{detail}</p>}
-      {extra && <p>{extra.reason}</p>}
       {finding.recommendation && <p>{finding.recommendation}</p>}
     </article>
   );
 }
 
-function PacingBlock({
-  finding,
-  durationSeconds,
-}: {
-  finding?: PreflightFinding;
-  durationSeconds: number;
-}) {
+function SpeechBlock({ finding }: { finding?: PreflightFinding }) {
   if (!finding) return null;
+  const activity =
+    finding.measurements && typeof finding.measurements.activity_start_seconds === "number"
+      ? Number(finding.measurements.activity_start_seconds)
+      : null;
+  const estimated = activity !== null && finding.status === "pass";
   return (
     <article className="shortform-check">
       <header>
-        <p className="mono-label">PACING</p>
-        <span className={`status-label status-label--${finding.status}`}>
-          {STATUS_LABELS[finding.status]}
-        </span>
+        <p className="mono-label">SPEECH</p>
+        <Status status={finding.status} />
       </header>
-      <h3>{finding.title}</h3>
-      {finding.ranges.map((range) => (
-        <p key={`${range.start_seconds}-${range.end_seconds}`} className="shortform-range">
-          {formatTimestampPrecise(range.start_seconds)} → {formatTimestampPrecise(range.end_seconds)}
-          <span>{range.duration_seconds.toFixed(2)} sec low-energy interval</span>
-        </p>
-      ))}
-      <p>{finding.reason}</p>
+      {estimated && (
+        <>
+          <p className="shortform-range">
+            Activity start
+            <span>{formatTimestampPrecise(activity)}</span>
+          </p>
+          <p className="mono-label">Estimated</p>
+          <p>First sustained voice-like activity detected.</p>
+          <p>Energy-based estimate. Music or effects may also trigger this measurement.</p>
+        </>
+      )}
+      {!estimated && <p>{finding.reason}</p>}
       {finding.recommendation && <p>{finding.recommendation}</p>}
-      {finding.ranges.length > 0 && durationSeconds > 0 && (
-        <PacingTimeline ranges={finding.ranges} durationSeconds={durationSeconds} />
+    </article>
+  );
+}
+
+function SemanticBlock({
+  title,
+  finding,
+  concise,
+  fallback,
+}: {
+  title: string;
+  finding?: PreflightFinding;
+  concise: boolean;
+  fallback: string;
+}) {
+  if (!finding) return null;
+  const providerGap = isSemanticProviderGap(finding);
+  const stamp = finding.ranges[0]?.start_seconds;
+  const reason = providerGap ? (concise ? fallback : "Semantic review temporarily unavailable.") : finding.reason;
+  return (
+    <article className="shortform-check">
+      <header>
+        <p className="mono-label">{title.toUpperCase()}</p>
+        <Status status={finding.status} />
+      </header>
+      <p>{reason}</p>
+      {!providerGap && finding.recommendation && <p>{finding.recommendation}</p>}
+      {!providerGap && (stamp !== undefined || finding.evidence_text) && (
+        <div className="shortform-evidence">
+          <p className="mono-label">EVIDENCE</p>
+          {stamp !== undefined && (
+            <p className="shortform-range">{formatTimestampPrecise(stamp)}</p>
+          )}
+          {finding.evidence_text && <blockquote>{finding.evidence_text}</blockquote>}
+        </div>
       )}
     </article>
   );
 }
 
-function PacingTimeline({
-  ranges,
-  durationSeconds,
-}: {
-  ranges: ShortFormReport["findings"][number]["ranges"];
-  durationSeconds: number;
-}) {
+function PacingBlock({ finding }: { finding?: PreflightFinding }) {
+  if (!finding) return null;
   return (
-    <div className="pacing-timeline" aria-label="Pacing timeline">
-      <div className="pacing-timeline__track">
-        {ranges.map((range) => (
-          <span
-            key={`${range.start_seconds}-${range.end_seconds}`}
-            className="pacing-timeline__mark"
-            style={{ left: `${Math.min(96, (range.start_seconds / durationSeconds) * 100)}%` }}
-          >
-            ▲
-            <em>PACING</em>
-          </span>
+    <article className="shortform-check">
+      <header>
+        <p className="mono-label">PACING</p>
+        <Status status={finding.status} />
+      </header>
+      {finding.ranges.map((range) => (
+        <p key={`${range.start_seconds}-${range.end_seconds}`} className="shortform-range">
+          {formatTimestampPrecise(range.start_seconds)}–{formatTimestampPrecise(range.end_seconds)}
+          <span>{range.duration_seconds.toFixed(2)} sec low-energy interval</span>
+        </p>
+      ))}
+      <p>{finding.reason}</p>
+      {finding.recommendation && <p>{finding.recommendation}</p>}
+    </article>
+  );
+}
+
+type TimelineMark = {
+  key: string;
+  label: string;
+  seconds: number;
+  endSeconds?: number;
+  kind: "hook" | "pacing" | "cta";
+};
+
+function ReportTimeline({ report }: { report: ShortFormReport }) {
+  const duration = report.media.duration_seconds;
+  if (duration <= 0) return null;
+  const marks = collectTimelineMarks(report);
+  if (marks.length === 0) return null;
+  const laidOut = layoutMarks(marks, duration);
+  const stacked = laidOut.some((mark) => mark.offset > 0);
+  const pacingLegend = marks.filter((mark) => mark.kind === "pacing" && marks.filter((item) => item.kind === "pacing").length > 1);
+  return (
+    <article className="shortform-check">
+      <header>
+        <p className="mono-label">TIMELINE</p>
+      </header>
+      <div className="shortform-timeline" aria-label="Short-form timeline">
+        <div className={`shortform-timeline__track${stacked ? " shortform-timeline__track--stacked" : ""}`}>
+          {laidOut.map((mark) => (
+            <span
+              key={mark.key}
+              className={`shortform-timeline__mark shortform-timeline__mark--${mark.align}${mark.offset > 0 ? " shortform-timeline__mark--offset" : ""}`}
+              style={{ left: `${mark.left}%` }}
+              aria-label={`${mark.label} at ${formatTimestampPrecise(mark.seconds)}`}
+            >
+              ▲
+              <em>{mark.label}</em>
+            </span>
+          ))}
+        </div>
+        <div className="shortform-timeline__scale">
+          <span>{formatTimestamp(0)}</span>
+          <span>{formatTimestamp(duration / 2)}</span>
+          <span>{formatTimestamp(duration)}</span>
+        </div>
+        {pacingLegend.length > 0 && (
+          <ul className="shortform-timeline__legend">
+            {pacingLegend.map((mark) => (
+              <li key={mark.key}>
+                <span>{mark.label}</span>
+                <span>
+                  {formatTimestampPrecise(mark.seconds)}
+                  {mark.endSeconds !== undefined ? `–${formatTimestampPrecise(mark.endSeconds)}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function collectTimelineMarks(report: ShortFormReport): TimelineMark[] {
+  const marks: TimelineMark[] = [];
+  const opening = findingById(report, "opening");
+  const pacing = findingById(report, "dead_air");
+  const cta = findingById(report, "cta");
+  const openingAt = opening?.ranges[0]?.start_seconds;
+  if (openingAt !== undefined && opening?.status !== "not_evaluated") {
+    marks.push({
+      key: "hook",
+      label: "HOOK",
+      seconds: openingAt,
+      kind: "hook",
+    });
+  }
+  const pacingRanges = pacing?.ranges ?? [];
+  pacingRanges.forEach((range, index) => {
+    marks.push({
+      key: `pacing-${range.start_seconds}-${range.end_seconds}`,
+      label: pacingRanges.length > 1 ? `P${index + 1}` : "PACING",
+      seconds: range.start_seconds,
+      endSeconds: range.end_seconds,
+      kind: "pacing",
+    });
+  });
+  const ctaAt = cta?.ranges[0]?.start_seconds;
+  if (ctaAt !== undefined && cta?.status === "pass") {
+    marks.push({
+      key: "cta",
+      label: "CTA",
+      seconds: ctaAt,
+      kind: "cta",
+    });
+  }
+  return marks;
+}
+
+function layoutMarks(marks: TimelineMark[], duration: number) {
+  const cluster = 8;
+  return marks.map((mark, index) => {
+    const raw = (mark.seconds / duration) * 100;
+    const left = Math.min(96, Math.max(1, raw));
+    let offset = 0;
+    for (let prior = 0; prior < index; prior += 1) {
+      const previous = (marks[prior].seconds / duration) * 100;
+      if (Math.abs(left - previous) < cluster) {
+        offset += 1;
+      }
+    }
+    const align = left <= 6 ? "start" : left >= 90 ? "end" : "center";
+    return { ...mark, left, offset, align };
+  });
+}
+
+function PriorityList({ priorities }: { priorities: ReviewPriority[] }) {
+  if (priorities.length === 0) return null;
+  return (
+    <article className="shortform-check">
+      <header>
+        <p className="mono-label">REVIEW PRIORITIES</p>
+      </header>
+      <ol className="shortform-priorities">
+        {priorities.map((item) => (
+          <li key={`${item.rank}-${item.check_id}`}>
+            <span className="mono-label">{String(item.rank).padStart(2, "0")}</span>
+            {item.title}
+          </li>
         ))}
-      </div>
-      <div className="pacing-timeline__scale">
-        <span>{formatTimestamp(0)}</span>
-        <span>{formatTimestamp(durationSeconds / 2)}</span>
-        <span>{formatTimestamp(durationSeconds)}</span>
-      </div>
-    </div>
+      </ol>
+    </article>
   );
 }

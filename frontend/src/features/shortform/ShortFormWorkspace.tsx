@@ -62,8 +62,8 @@ export function ShortFormWorkspace() {
             <h1 id="shortform-title">Know what to fix before you publish.</h1>
           </div>
           <p>
-            Inspect a TikTok, Shorts, or Reels cut for format, duration, audio,
-            and pacing before it goes live.
+            Inspect a TikTok, Shorts, or Reels cut for format, speech, opening,
+            pacing, and a closing call to action before it goes live.
           </p>
         </div>
       </section>
@@ -207,7 +207,13 @@ export function ShortFormWorkspace() {
         </footer>
       </form>
 
-      {report && <ShortFormReportView report={report} />}
+      {report && (
+        <ShortFormReportView
+          report={report}
+          onRetry={() => void analyze()}
+          retrying={requestActive}
+        />
+      )}
     </>
   );
 }
