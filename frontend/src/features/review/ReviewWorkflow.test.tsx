@@ -192,6 +192,9 @@ describe("review workflow", () => {
       screen.getByText("“Today's video is sponsored by AcmeVPN.”"),
     ).toBeVisible();
     expect(screen.getByText("SOURCE CUE / 1")).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /generate fix/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders a failed requirement without fabricating evidence", async () => {
@@ -206,6 +209,9 @@ describe("review workflow", () => {
     ).toBeVisible();
     expect(screen.queryByText("EVIDENCE")).not.toBeInTheDocument();
     expect(screen.queryByText("00:38")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /generate fix/i }),
+    ).toBeInTheDocument();
   });
 
   it("shows a safe malformed-transcript error", async () => {
@@ -422,6 +428,9 @@ describe("review workflow", () => {
       screen.getByText("Semantic verification detected the prohibited claim."),
     ).toBeVisible();
     expect(screen.getByText("VERIFICATION / SEMANTIC")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /generate fix/i }),
+    ).toBeInTheDocument();
   });
 
   it("renders semantic content uncertainty as an accessible grounded WARNING", async () => {
@@ -469,6 +478,9 @@ describe("review workflow", () => {
     expect(
       screen.getByText("“Today's video is sponsored by AcmeVPN.”"),
     ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /generate fix/i }),
+    ).toBeInTheDocument();
   });
 
   it("keeps deterministic findings visible when semantic verification is unavailable", async () => {
@@ -539,6 +551,12 @@ describe("review workflow", () => {
       ),
     ).toHaveTextContent("1 / 2");
     expect(screen.getByLabelText("Compliance score 100 out of 100")).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /generate fix/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/review this requirement manually/i),
+    ).toBeInTheDocument();
   });
 
   it("renders an unavailable score when no requirements were evaluated", async () => {
@@ -584,10 +602,124 @@ describe("review workflow", () => {
     expect(
       screen.getByLabelText("Compliance status: Not evaluated"),
     ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /generate fix/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Campaign or review name")).toHaveValue(
       "Semantic campaign review",
     );
     expect(screen.getByLabelText("SRT transcript")).toHaveValue(VALID_SRT);
     expect(screen.getByRole("button", { name: "Analyze review" })).toBeEnabled();
+  });
+
+  it("generates, retries, regenerates, and dismisses one finding without changing another", async () => {
+    let fixCalls = 0;
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/api/v1/compliance/analyze")) {
+        const request = requestFromInit(init);
+        return jsonResponse({
+          summary: {
+            total: 2,
+            evaluated: 2,
+            not_evaluated: 0,
+            passed: 0,
+            warnings: 0,
+            failed: 2,
+            compliance_score: 0,
+            verification_coverage: 100,
+          },
+          results: [
+            {
+              requirement_id: request.requirements[0].id,
+              status: "fail",
+              reason_code: "REQUIRED_MENTION_MISSING",
+              reason: "Required mention AcmeVPN was not found.",
+              source_segment_index: null,
+              timestamp_seconds: null,
+              evidence: null,
+            },
+            {
+              requirement_id: request.requirements[1].id,
+              status: "fail",
+              reason_code: "REQUIRED_TOKEN_MISSING",
+              reason: "Required token CREATOR25 was not found.",
+              source_segment_index: null,
+              timestamp_seconds: null,
+              evidence: null,
+            },
+          ],
+        });
+      }
+
+      const payload = JSON.parse(String(init?.body)) as {
+        requirement: { id: string };
+      };
+      fixCalls += 1;
+      if (fixCalls === 1) {
+        return jsonResponse(
+          {
+            error: {
+              code: "LLM_PROVIDER_TIMEOUT",
+              message: "Internal timeout detail.",
+            },
+          },
+          504,
+        );
+      }
+      return jsonResponse({
+        requirement_id: payload.requirement.id,
+        action: "insert",
+        suggested_text: "This content is sponsored by AcmeVPN.",
+        placement: {
+          strategy: "after_segment",
+          source_segment_index: 2,
+          timestamp_seconds: 52,
+          before_seconds: null,
+        },
+        reason: "Insert the missing required sponsor mention.",
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ReviewWorkspace />);
+    const user = await fillFirstRequirement();
+    await user.click(screen.getByRole("button", { name: "Add requirement" }));
+    fireEvent.change(screen.getByLabelText("Requirement 2 description"), {
+      target: { value: "Use code CREATOR25" },
+    });
+    fireEvent.change(screen.getByLabelText("Requirement 2 target value"), {
+      target: { value: "CREATOR25" },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Analyze review" }));
+    const generateButtons = await screen.findAllByRole("button", {
+      name: /generate fix/i,
+    });
+    expect(generateButtons).toHaveLength(2);
+
+    await user.click(generateButtons[0]);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Fix generation took too long. Try again.",
+    );
+    expect(
+      screen.getByRole("button", { name: /generate fix for/i }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /retry fix/i }));
+    expect(await screen.findByText("RECOMMENDED CHANGE")).toBeInTheDocument();
+    expect(
+      screen.getByText(/This content is sponsored by AcmeVPN\./),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/after 00:52/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /generate fix for/i }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /regenerate/i }));
+    expect(await screen.findByText("RECOMMENDED CHANGE")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /dismiss suggestion/i }));
+    expect(screen.queryByText("RECOMMENDED CHANGE")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /generate fix/i })).toHaveLength(2);
   });
 });

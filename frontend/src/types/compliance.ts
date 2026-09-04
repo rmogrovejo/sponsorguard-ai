@@ -70,6 +70,36 @@ export interface AnalyzeComplianceResponse {
   results: ComplianceResult[];
 }
 
+export type FixAction = "insert" | "replace" | "review_manually";
+
+export type FixPlacementStrategy =
+  | "after_segment"
+  | "replace_segment"
+  | "before_deadline"
+  | "review_segment";
+
+export interface GenerateFixRequest {
+  requirement: RequirementPayload;
+  finding: ComplianceResult;
+  transcript: {
+    format: "srt";
+    content: string;
+  };
+}
+
+export interface GeneratedFix {
+  requirement_id: string;
+  action: FixAction;
+  suggested_text: string | null;
+  placement: {
+    strategy: FixPlacementStrategy;
+    source_segment_index: number | null;
+    timestamp_seconds: number | null;
+    before_seconds: number | null;
+  } | null;
+  reason: string;
+}
+
 export type RequestPhase =
   | "idle"
   | "validating"

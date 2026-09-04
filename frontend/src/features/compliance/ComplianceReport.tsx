@@ -2,6 +2,8 @@ import type { RefObject } from "react";
 
 import type { ComplianceStatus } from "../../types/compliance";
 import { formatTimestamp } from "../../utils/timestamp";
+import { FixRecommendation } from "../fixes/FixRecommendation";
+import { useFixGeneration } from "../fixes/useFixGeneration";
 import type { ReviewReportSnapshot } from "../review/useComplianceAnalysis";
 import { isSemanticRequirementType } from "../requirements/requirementModel";
 
@@ -26,6 +28,7 @@ export function ComplianceReport({
   headingRef,
 }: ComplianceReportProps) {
   const { summary, results } = report.response;
+  const fixes = useFixGeneration(report);
 
   return (
     <section className="compliance-report" aria-labelledby="report-heading">
@@ -156,6 +159,13 @@ export function ComplianceReport({
                     )}
                   </figure>
                 )}
+
+                <FixRecommendation
+                  finding={result}
+                  state={fixes.stateFor(result.requirement_id)}
+                  onGenerate={() => void fixes.generate(result)}
+                  onDismiss={() => fixes.dismiss(result.requirement_id)}
+                />
 
                 <details className="technical-detail">
                   <summary>Technical detail</summary>

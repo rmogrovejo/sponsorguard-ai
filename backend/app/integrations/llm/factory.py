@@ -2,11 +2,14 @@ from collections.abc import Sequence
 
 from app.core.config import Settings
 from app.domain.extraction import BriefExtractionOutput
+from app.domain.fixes import FixProviderOutput
+from app.domain.requirements import Requirement
 from app.domain.semantic import SemanticRequirement, SemanticVerificationOutput
 from app.domain.transcript import TranscriptSegment
-from app.integrations.llm.base import LLMRequirementExtractor, SemanticVerifier
+from app.integrations.llm.base import FixGenerator, LLMRequirementExtractor, SemanticVerifier
 from app.integrations.llm.exceptions import LLMConfigurationError
 from app.integrations.llm.gemini_provider import GeminiRequirementExtractor
+from app.integrations.llm.gemini_fix_provider import GeminiFixGenerator
 from app.integrations.llm.gemini_semantic_provider import GeminiSemanticVerifier
 from app.integrations.llm.openai_provider import OpenAIRequirementExtractor
 
@@ -70,6 +73,36 @@ class UnconfiguredSemanticVerifier:
         raise LLMConfigurationError(self._reason)
 
 
+class UnconfiguredFixGenerator:
+    """Keeps reports usable when optional fix generation is unavailable."""
+
+    def __init__(
+        self,
+        *,
+        provider_name: str,
+        model_name: str,
+        reason: str = "Fix generation is not configured on this server.",
+    ) -> None:
+        self._provider_name = provider_name
+        self._model_name = model_name
+        self._reason = reason
+
+    @property
+    def provider_name(self) -> str:
+        return self._provider_name
+
+    @property
+    def model_name(self) -> str:
+        return self._model_name
+
+    async def generate_fix(
+        self,
+        requirement: Requirement,
+        transcript_segments: Sequence[TranscriptSegment],
+    ) -> FixProviderOutput:
+        raise LLMConfigurationError(self._reason)
+
+
 def create_requirement_extractor(settings: Settings) -> LLMRequirementExtractor:
     provider_name = settings.llm_provider.strip().lower()
     model_name = settings.resolved_llm_model
@@ -127,4 +160,27 @@ def create_semantic_verifier(settings: Settings) -> SemanticVerifier:
         reason=(
             f"Semantic verification is not implemented for provider: {provider_name}"
         ),
+    )
+
+
+def create_fix_generator(settings: Settings) -> FixGenerator:
+    provider_name = settings.llm_provider.strip().lower()
+    model_name = settings.resolved_llm_model
+
+    if provider_name == "gemini":
+        if settings.gemini_api_key is None:
+            return UnconfiguredFixGenerator(
+                provider_name=provider_name,
+                model_name=model_name,
+            )
+        return GeminiFixGenerator(
+            api_key=settings.gemini_api_key,
+            model=model_name,
+            timeout_seconds=settings.semantic_timeout_seconds,
+        )
+
+    return UnconfiguredFixGenerator(
+        provider_name=provider_name,
+        model_name=model_name,
+        reason=f"Fix generation is not implemented for provider: {provider_name}",
     )

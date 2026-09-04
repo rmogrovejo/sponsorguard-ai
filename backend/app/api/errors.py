@@ -20,6 +20,10 @@ from app.parsers.srt import MAX_SRT_CHARACTERS
 from app.schemas.errors import APIError, APIErrorCode, ErrorResponse
 from app.services.brief_extraction import MAX_BRIEF_CHARACTERS
 from app.services.compliance_engine import ComplianceInputError
+from app.services.fix_generation import (
+    FixGenerationInputError,
+    FixGenerationInputErrorCode,
+)
 
 
 logger = logging.getLogger("sponsorguard.api")
@@ -30,6 +34,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(TranscriptTooLargeError, transcript_too_large_handler)
     app.add_exception_handler(TranscriptParseError, invalid_transcript_handler)
     app.add_exception_handler(ComplianceInputError, compliance_input_handler)
+    app.add_exception_handler(FixGenerationInputError, fix_input_handler)
     app.add_exception_handler(LLMProviderError, llm_provider_error_handler)
     app.add_exception_handler(Exception, internal_error_handler)
 
@@ -115,16 +120,43 @@ async def compliance_input_handler(
     )
 
 
+async def fix_input_handler(
+    request: Request,
+    error: Exception,
+) -> JSONResponse:
+    assert isinstance(error, FixGenerationInputError)
+    code = (
+        APIErrorCode.FIX_NOT_ELIGIBLE
+        if error.code is FixGenerationInputErrorCode.INELIGIBLE_FINDING
+        else APIErrorCode.INVALID_FIX_INPUT
+    )
+    message = (
+        "This finding is not eligible for a generated fix."
+        if code is APIErrorCode.FIX_NOT_ELIGIBLE
+        else "The fix-generation request is inconsistent with the transcript."
+    )
+    return build_error_response(
+        code=code,
+        message=message,
+        status_code=status.HTTP_400_BAD_REQUEST,
+        details={"reason_code": error.code.value},
+    )
+
+
 async def llm_provider_error_handler(
     request: Request,
     error: Exception,
 ) -> JSONResponse:
     assert isinstance(error, LLMProviderError)
-    code, message, status_code = _llm_error_response_policy(error)
+    is_fix_request = request.url.path.startswith("/api/v1/fixes/")
+    code, message, status_code = _llm_error_response_policy(
+        error,
+        operation="fix" if is_fix_request else "extraction",
+    )
     logger.warning(
-        "Controlled requirement extraction failure",
+        "Controlled fix generation failure" if is_fix_request else "Controlled requirement extraction failure",
         extra={
-            "event": "brief_extraction_failed",
+            "event": "fix_generation_failed" if is_fix_request else "brief_extraction_failed",
             "request_id": getattr(request.state, "request_id", None),
             "method": request.method,
             "path": request.url.path,
@@ -205,45 +237,48 @@ def _contains_oversized_brief(errors: list[dict[str, Any]]) -> bool:
 
 def _llm_error_response_policy(
     error: LLMProviderError,
+    *,
+    operation: str = "extraction",
 ) -> tuple[APIErrorCode, str, int]:
+    label = "Fix generation" if operation == "fix" else "Requirement extraction"
     if isinstance(error, LLMProviderTimeoutError):
         return (
             APIErrorCode.LLM_PROVIDER_TIMEOUT,
-            "Requirement extraction timed out.",
+            f"{label} timed out.",
             status.HTTP_504_GATEWAY_TIMEOUT,
         )
     if isinstance(error, LLMRateLimitError):
         return (
             APIErrorCode.LLM_PROVIDER_RATE_LIMITED,
-            "Requirement extraction is temporarily rate limited.",
+            f"{label} is temporarily rate limited.",
             status.HTTP_429_TOO_MANY_REQUESTS,
         )
     if isinstance(error, LLMAuthenticationError):
         return (
             APIErrorCode.LLM_PROVIDER_AUTHENTICATION_ERROR,
-            "Requirement extraction is not available because provider authentication failed.",
+            f"{label} is not available because provider authentication failed.",
             status.HTTP_503_SERVICE_UNAVAILABLE,
         )
     if isinstance(error, LLMConfigurationError):
         return (
             APIErrorCode.LLM_PROVIDER_CONFIGURATION_ERROR,
-            "Requirement extraction is not configured on this server.",
+            f"{label} is not configured on this server.",
             status.HTTP_503_SERVICE_UNAVAILABLE,
         )
     if isinstance(error, (LLMMalformedOutputError, LLMOutputValidationError)):
         return (
             APIErrorCode.LLM_PROVIDER_OUTPUT_INVALID,
-            "Requirement extraction returned an invalid structured result.",
+            f"{label} returned an invalid structured result.",
             status.HTTP_502_BAD_GATEWAY,
         )
     if isinstance(error, LLMProviderUnavailableError):
         return (
             APIErrorCode.LLM_PROVIDER_UNAVAILABLE,
-            "Requirement extraction is temporarily unavailable.",
+            f"{label} is temporarily unavailable.",
             status.HTTP_503_SERVICE_UNAVAILABLE,
         )
     return (
         APIErrorCode.LLM_PROVIDER_UNAVAILABLE,
-        "Requirement extraction is temporarily unavailable.",
+        f"{label} is temporarily unavailable.",
         status.HTTP_503_SERVICE_UNAVAILABLE,
     )

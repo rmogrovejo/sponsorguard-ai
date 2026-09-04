@@ -913,6 +913,79 @@ label.secondary-button:hover:not(.is-disabled) {
   color: var(--color-muted);
 }
 
+.fix-workflow {
+  max-width: 52rem;
+  margin-top: 1.5rem;
+}
+
+.fix-button {
+  min-height: 2.35rem;
+}
+
+.fix-recommendation {
+  padding: 1.25rem 0 0.25rem 1.25rem;
+  border-top: 1px solid var(--color-ink);
+  border-left: 3px solid var(--color-signal);
+}
+
+.fix-recommendation h4 {
+  margin-top: 0.45rem;
+  color: var(--color-ink);
+  font-family: var(--font-editorial);
+  font-size: 1.15rem;
+}
+
+.fix-recommendation blockquote {
+  margin-top: 1rem;
+  color: var(--color-ink);
+  font-family: var(--font-editorial);
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
+  line-height: 1.5;
+}
+
+.fix-recommendation > p:not(.mono-label) {
+  margin-top: 0.8rem;
+  color: var(--color-muted-strong);
+  font-size: 0.875rem;
+}
+
+.fix-recommendation dl {
+  margin-top: 1rem;
+}
+
+.fix-recommendation dd {
+  margin-top: 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.fix-recommendation__actions,
+.fix-error {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 1.25rem;
+}
+
+.fix-error {
+  justify-content: space-between;
+  padding: 0.9rem 1rem;
+  border-left: 3px solid var(--color-fail);
+  background: var(--color-fail-surface);
+  color: var(--color-fail);
+  font-size: 0.875rem;
+}
+
+.fix-unavailable {
+  max-width: 52rem;
+  margin-top: 1.25rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--color-warning);
+  color: var(--color-muted-strong);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 .technical-detail {
   max-width: 52rem;
   margin-top: 1rem;
@@ -1087,6 +1160,17 @@ label.secondary-button:hover:not(.is-disabled) {
 
   .finding__body {
     margin-left: calc(2rem + 1rem);
+  }
+
+  .fix-recommendation__actions,
+  .fix-error {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .fix-recommendation__actions button,
+  .fix-error button {
+    width: 100%;
   }
 }
 

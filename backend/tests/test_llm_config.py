@@ -14,10 +14,12 @@ from app.integrations.llm.exceptions import LLMConfigurationError
 from app.domain.requirements import RequiredTalkingPointRequirement
 from app.domain.transcript import TranscriptSegment
 from app.integrations.llm.factory import (
+    create_fix_generator,
     create_requirement_extractor,
     create_semantic_verifier,
 )
 from app.integrations.llm.gemini_provider import GeminiRequirementExtractor
+from app.integrations.llm.gemini_fix_provider import GeminiFixGenerator
 from app.integrations.llm.gemini_semantic_provider import GeminiSemanticVerifier
 from app.integrations.llm.openai_provider import OpenAIRequirementExtractor
 
@@ -131,6 +133,37 @@ def test_missing_gemini_key_returns_unconfigured_semantic_boundary() -> None:
 
     with pytest.raises(LLMConfigurationError, match="not configured"):
         asyncio.run(verifier.verify_semantics(requirement, transcript))
+
+
+def test_gemini_fix_generator_uses_semantic_timeout_configuration() -> None:
+    generator = create_fix_generator(
+        Settings(
+            llm_provider="gemini",
+            llm_model="gemini-configured-model",
+            gemini_api_key="test-placeholder-not-a-real-key",
+            llm_timeout_seconds=11,
+            semantic_timeout_seconds=73,
+        )
+    )
+
+    assert isinstance(generator, GeminiFixGenerator)
+    assert generator.model_name == "gemini-configured-model"
+    assert generator._timeout_seconds == 73  # type: ignore[attr-defined]
+
+
+def test_missing_key_keeps_fix_generation_behind_controlled_boundary() -> None:
+    generator = create_fix_generator(Settings())
+    requirement = RequiredTalkingPointRequirement(
+        id="req_semantic",
+        description="Explain the benefit",
+        value="The product reduces editing time",
+    )
+    transcript = [
+        TranscriptSegment(index=1, start_seconds=0.0, end_seconds=1.0, text="A transcript.")
+    ]
+
+    with pytest.raises(LLMConfigurationError, match="not configured"):
+        asyncio.run(generator.generate_fix(requirement, transcript))
 
 
 def test_unsupported_provider_is_rejected_through_controlled_boundary() -> None:

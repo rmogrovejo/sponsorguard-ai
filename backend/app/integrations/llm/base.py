@@ -2,6 +2,8 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from app.domain.extraction import BriefExtractionOutput
+from app.domain.fixes import FixProviderOutput
+from app.domain.requirements import Requirement
 from app.domain.semantic import SemanticRequirement, SemanticVerificationOutput
 from app.domain.transcript import TranscriptSegment
 
@@ -35,3 +37,19 @@ class SemanticVerifier(Protocol):
         requirement: SemanticRequirement,
         transcript_segments: Sequence[TranscriptSegment],
     ) -> SemanticVerificationOutput: ...
+
+
+class FixGenerator(Protocol):
+    """Narrow provider boundary for one bounded, advisory correction."""
+
+    @property
+    def provider_name(self) -> str: ...
+
+    @property
+    def model_name(self) -> str: ...
+
+    async def generate_fix(
+        self,
+        requirement: Requirement,
+        transcript_segments: Sequence[TranscriptSegment],
+    ) -> FixProviderOutput: ...

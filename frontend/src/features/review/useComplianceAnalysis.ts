@@ -8,6 +8,7 @@ import type {
   AnalyzeComplianceResponse,
   RequestPhase,
   RequirementDraft,
+  RequirementPayload,
   RequirementType,
 } from "../../types/compliance";
 import {
@@ -20,6 +21,8 @@ export interface ReviewReportSnapshot {
   campaignName: string;
   requirementDescriptions: Record<string, string>;
   requirementTypes: Record<string, RequirementType>;
+  requirementsById: Record<string, RequirementPayload>;
+  transcriptContent: string;
   response: AnalyzeComplianceResponse;
 }
 
@@ -94,6 +97,13 @@ export function useComplianceAnalysis() {
         campaignName: draft.campaignName.trim(),
         requirementDescriptions: snapshotDescriptions(draft.requirements),
         requirementTypes: snapshotTypes(draft.requirements),
+        requirementsById: Object.fromEntries(
+          validation.request.requirements.map((requirement) => [
+            requirement.id,
+            requirement,
+          ]),
+        ),
+        transcriptContent: validation.request.transcript.content,
         response,
       });
       setPhase("success");
