@@ -101,3 +101,34 @@ export const PLATFORM_OPTIONS: ReadonlyArray<{
 ];
 
 export const SHORTFORM_MAX_UPLOAD_BYTES = 25_000_000;
+
+export type SuggestionFindingId = "opening" | "cta";
+
+export type SuggestionOutcome = "suggested" | "review_manually";
+
+export type SuggestionPlacementStrategy =
+  | "replace_opening"
+  | "opening_first_seconds"
+  | "append_near_end";
+
+export interface ShortFormSuggestionPlacement {
+  strategy: SuggestionPlacementStrategy;
+  start_seconds: number | null;
+  end_seconds: number | null;
+  after_seconds: number | null;
+}
+
+export interface ShortFormSuggestion {
+  finding_id: SuggestionFindingId;
+  type: SuggestionFindingId;
+  outcome: SuggestionOutcome;
+  suggested_text: string | null;
+  reason: string;
+  referenced_segment_indices: number[];
+  placement: ShortFormSuggestionPlacement;
+  display_label: string;
+}
+
+export function isSuggestionEligible(finding: PreflightFinding): boolean {
+  return (finding.check_id === "opening" || finding.check_id === "cta") && finding.status === "warning";
+}

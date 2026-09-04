@@ -2,8 +2,9 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import type { PreflightFinding, ShortFormReport } from "../../types/shortform";
+import type { PreflightFinding, ShortFormReport, ShortFormSuggestion } from "../../types/shortform";
 import { ShortFormReportView } from "./ShortFormReport";
+import type { FindingSuggestionState } from "./useShortFormSuggestions";
 
 function finding(
   overrides: Partial<PreflightFinding> & Pick<PreflightFinding, "check_id" | "category" | "status" | "title" | "reason">,
@@ -343,6 +344,285 @@ describe("ShortFormReportView", () => {
     );
     expect(screen.queryByText("SEMANTIC REVIEW")).not.toBeInTheDocument();
     expect(screen.getAllByText(/no usable speech activity/i)).toHaveLength(2);
+  });
+
+  const openingSuggestion: ShortFormSuggestion = {
+    finding_id: "opening",
+    type: "opening",
+    outcome: "suggested",
+    suggested_text: "Three settings are slowing down your PC, and one may already be enabled.",
+    reason: "The opening spends time on a generic introduction.",
+    referenced_segment_indices: [1],
+    placement: {
+      strategy: "replace_opening",
+      start_seconds: 0,
+      end_seconds: 3.4,
+      after_seconds: null,
+    },
+    display_label: "SUGGESTED OPENING",
+  };
+
+  const ctaSuggestion: ShortFormSuggestion = {
+    finding_id: "cta",
+    type: "cta",
+    outcome: "suggested",
+    suggested_text: "Follow for part two.",
+    reason: "The ending has no clear next action.",
+    referenced_segment_indices: [2],
+    placement: {
+      strategy: "append_near_end",
+      start_seconds: null,
+      end_seconds: null,
+      after_seconds: 24.1,
+    },
+    display_label: "SUGGESTED CTA",
+  };
+
+  function suggestionState(overrides: Partial<FindingSuggestionState> = {}): FindingSuggestionState {
+    return { phase: "idle", suggestion: null, error: null, ...overrides };
+  }
+
+  it("shows opening and CTA suggestion actions only when eligible", () => {
+    const onSuggest = vi.fn();
+    render(
+      <ShortFormReportView
+        report={report({
+          findings: [
+            finding({
+              check_id: "opening",
+              category: "opening",
+              status: "warning",
+              title: "Opening",
+              reason: "The viewer payoff arrives after a generic introduction.",
+            }),
+            finding({
+              check_id: "cta",
+              category: "cta",
+              status: "warning",
+              title: "Call to action",
+              reason: "No clear call to action detected near the ending.",
+            }),
+          ],
+        })}
+        onSuggest={onSuggest}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Suggest stronger opening" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Suggest CTA" })).toBeVisible();
+  });
+
+  it("hides suggestion actions for PASS findings", () => {
+    render(
+      <ShortFormReportView
+        report={report()}
+        onSuggest={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Suggest stronger opening" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Suggest CTA" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer suggestions when opening or CTA is not evaluated", () => {
+    render(
+      <ShortFormReportView
+        report={report({
+          findings: [
+            finding({
+              check_id: "opening",
+              category: "opening",
+              status: "not_evaluated",
+              title: "Opening",
+              reason: "Opening and call to action could not be evaluated because no usable speech activity was detected.",
+            }),
+            finding({
+              check_id: "cta",
+              category: "cta",
+              status: "not_evaluated",
+              title: "Call to action",
+              reason: "Opening and call to action could not be evaluated because no usable speech activity was detected.",
+            }),
+          ],
+        })}
+        onSuggest={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Suggest stronger opening" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Suggest CTA" })).not.toBeInTheDocument();
+  });
+
+  it("renders generating state, suggestion text, and placement", () => {
+    const { rerender } = render(
+      <ShortFormReportView
+        report={report({
+          findings: [
+            finding({
+              check_id: "opening",
+              category: "opening",
+              status: "warning",
+              title: "Opening",
+              reason: "The viewer payoff arrives after a generic introduction.",
+            }),
+          ],
+        })}
+        onSuggest={vi.fn()}
+        suggestionStateFor={() => suggestionState({ phase: "generating" })}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Suggesting…" })).toBeDisabled();
+
+    rerender(
+      <ShortFormReportView
+        report={report({
+          findings: [
+            finding({
+              check_id: "opening",
+              category: "opening",
+              status: "warning",
+              title: "Opening",
+              reason: "The viewer payoff arrives after a generic introduction.",
+            }),
+          ],
+        })}
+        onSuggest={vi.fn()}
+        onDismissSuggestion={vi.fn()}
+        suggestionStateFor={() =>
+          suggestionState({ phase: "success", suggestion: openingSuggestion })
+        }
+      />,
+    );
+    expect(screen.getByText("RECOMMENDED OPENING")).toBeVisible();
+    expect(screen.getByText("SUGGESTED OPENING")).toBeVisible();
+    expect(
+      screen.getByText("Three settings are slowing down your PC, and one may already be enabled."),
+    ).toBeVisible();
+    expect(screen.getByText("Replace opening / 00:00.00–00:03.40")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Regenerate" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Dismiss suggestion" })).toBeVisible();
+  });
+
+  it("supports retry, regenerate, and dismiss without changing the report", async () => {
+    const user = userEvent.setup();
+    const onSuggest = vi.fn();
+    const onDismiss = vi.fn();
+    const warningReport = report({
+      findings: [
+        finding({
+          check_id: "opening",
+          category: "opening",
+          status: "warning",
+          title: "Opening",
+          reason: "The viewer payoff arrives after a generic introduction.",
+        }),
+      ],
+      summary: {
+        total: 9,
+        evaluated: 9,
+        not_evaluated: 0,
+        passed: 7,
+        warnings: 2,
+        failed: 0,
+        readiness_score: 88.89,
+        verification_coverage: 100,
+      },
+    });
+    const { rerender } = render(
+      <ShortFormReportView
+        report={warningReport}
+        onSuggest={onSuggest}
+        onDismissSuggestion={onDismiss}
+        suggestionStateFor={() =>
+          suggestionState({
+            phase: "error",
+            error: { message: "Suggestion generation is temporarily unavailable.", retryable: true },
+          })
+        }
+      />,
+    );
+    expect(screen.getByText("The viewer payoff arrives after a generic introduction.")).toBeVisible();
+    expect(screen.getByLabelText("Readiness score 88.89 out of 100")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onSuggest).toHaveBeenCalledWith("opening");
+
+    rerender(
+      <ShortFormReportView
+        report={warningReport}
+        onSuggest={onSuggest}
+        onDismissSuggestion={onDismiss}
+        suggestionStateFor={() =>
+          suggestionState({ phase: "success", suggestion: openingSuggestion })
+        }
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Regenerate" }));
+    expect(onSuggest).toHaveBeenCalledTimes(2);
+    await user.click(screen.getByRole("button", { name: "Dismiss suggestion" }));
+    expect(onDismiss).toHaveBeenCalledWith("opening");
+    expect(screen.getByText("The viewer payoff arrives after a generic introduction.")).toBeVisible();
+  });
+
+  it("keeps opening and CTA suggestion states independent", () => {
+    render(
+      <ShortFormReportView
+        report={report({
+          findings: [
+            finding({
+              check_id: "opening",
+              category: "opening",
+              status: "warning",
+              title: "Opening",
+              reason: "The viewer payoff arrives after a generic introduction.",
+            }),
+            finding({
+              check_id: "cta",
+              category: "cta",
+              status: "warning",
+              title: "Call to action",
+              reason: "No clear call to action detected near the ending.",
+            }),
+          ],
+        })}
+        onSuggest={vi.fn()}
+        onDismissSuggestion={vi.fn()}
+        suggestionStateFor={(id) =>
+          id === "opening"
+            ? suggestionState({ phase: "success", suggestion: openingSuggestion })
+            : suggestionState({ phase: "generating" })
+        }
+      />,
+    );
+    expect(screen.getByText("RECOMMENDED OPENING")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Suggesting…" })).toBeDisabled();
+    expect(screen.queryByText("RECOMMENDED CTA")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Regenerate" })).toBeEnabled();
+  });
+
+  it("renders CTA placement and keeps suggestion actions accessible on a narrow width", () => {
+    render(
+      <div style={{ width: 360 }}>
+        <ShortFormReportView
+          report={report({
+            findings: [
+              finding({
+                check_id: "cta",
+                category: "cta",
+                status: "warning",
+                title: "Call to action",
+                reason: "No clear call to action detected near the ending.",
+              }),
+            ],
+          })}
+          onSuggest={vi.fn()}
+          onDismissSuggestion={vi.fn()}
+          suggestionStateFor={() => suggestionState({ phase: "success", suggestion: ctaSuggestion })}
+        />
+      </div>,
+    );
+    expect(screen.getByText("RECOMMENDED CTA")).toBeVisible();
+    expect(screen.getByText("SUGGESTED CTA")).toBeVisible();
+    expect(screen.getByText("Follow for part two.")).toBeVisible();
+    expect(screen.getByText("Near ending / after 00:24.10")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Regenerate" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Dismiss suggestion" })).toBeVisible();
   });
 
   it("exposes accessible report landmarks on a compact mobile width", () => {

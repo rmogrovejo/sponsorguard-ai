@@ -208,10 +208,8 @@ describe("ShortFormWorkspace", () => {
 
   it("renders a successful report with format, duration, and pacing", async () => {
     const user = userEvent.setup();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(REPORT)),
-    );
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(REPORT));
+    vi.stubGlobal("fetch", fetchMock);
     render(<ShortFormWorkspace />);
     await user.upload(screen.getByLabelText("Choose MP4"), mp4File());
     await user.click(screen.getByRole("button", { name: "Start preflight" }));
@@ -224,6 +222,93 @@ describe("ShortFormWorkspace", () => {
     expect(screen.getByRole("heading", { name: "TikTok" })).toBeVisible();
     expect(screen.getByText("Three settings are killing your FPS.")).toBeVisible();
     expect(screen.getByText("Strengthen opening")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Suggest stronger opening" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Suggest CTA" })).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/api/v1/shortform/analyze");
+  });
+
+  it("generates opening and CTA suggestions independently and can dismiss them", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/shortform/analyze")) return jsonResponse(REPORT);
+      if (url.includes("/shortform/suggestions/generate")) {
+        const body = JSON.parse(String(init?.body)) as {
+          finding_id: string;
+        };
+        if (body.finding_id === "opening") {
+          return jsonResponse({
+            finding_id: "opening",
+            type: "opening",
+            outcome: "suggested",
+            suggested_text: "Three settings are slowing down your PC.",
+            reason: "The opening is generic.",
+            referenced_segment_indices: [1],
+            placement: {
+              strategy: "replace_opening",
+              start_seconds: 3.8,
+              end_seconds: 6.2,
+              after_seconds: null,
+            },
+            display_label: "SUGGESTED OPENING",
+          });
+        }
+        return jsonResponse({
+          finding_id: "cta",
+          type: "cta",
+          outcome: "suggested",
+          suggested_text: "Follow for part two.",
+          reason: "The ending has no next action.",
+          referenced_segment_indices: [2],
+          placement: {
+            strategy: "append_near_end",
+            start_seconds: null,
+            end_seconds: null,
+            after_seconds: 18.4,
+          },
+          display_label: "SUGGESTED CTA",
+        });
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ShortFormWorkspace />);
+    await user.upload(screen.getByLabelText("Choose MP4"), mp4File());
+    await user.click(screen.getByRole("button", { name: "Start preflight" }));
+    expect(await screen.findByRole("button", { name: "Suggest stronger opening" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Suggest stronger opening" }));
+    expect(await screen.findByText("Three settings are slowing down your PC.")).toBeVisible();
+    expect(screen.getByText("Replace opening / 00:03.80–00:06.20")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Suggest CTA" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Suggest CTA" }));
+    expect(await screen.findByText("Follow for part two.")).toBeVisible();
+    expect(screen.getByText("Three settings are slowing down your PC.")).toBeVisible();
+
+    await user.click(screen.getAllByRole("button", { name: "Dismiss suggestion" })[0]);
+    expect(screen.queryByText("Three settings are slowing down your PC.")).not.toBeInTheDocument();
+    expect(screen.getByText("Follow for part two.")).toBeVisible();
+    expect(screen.getByLabelText("Readiness score 83.33 out of 100")).toBeInTheDocument();
+  });
+
+  it("keeps the existing report when suggestion generation fails", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/shortform/analyze")) return jsonResponse(REPORT);
+      return jsonResponse({ error: { code: "LLM_PROVIDER_UNAVAILABLE", message: "down" } }, 503);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ShortFormWorkspace />);
+    await user.upload(screen.getByLabelText("Choose MP4"), mp4File());
+    await user.click(screen.getByRole("button", { name: "Start preflight" }));
+    await user.click(await screen.findByRole("button", { name: "Suggest CTA" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("temporarily unavailable");
+    expect(screen.getByLabelText("Readiness score 83.33 out of 100")).toBeInTheDocument();
+    expect(screen.getByText("No clear call to action detected near the ending.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
   });
 
   it("shows a controlled backend failure", async () => {

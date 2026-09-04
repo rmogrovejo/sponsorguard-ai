@@ -1489,6 +1489,50 @@ label.secondary-button:hover:not(.is-disabled) {
   overflow-wrap: break-word;
 }
 
+.shortform-suggestion {
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: var(--rule);
+}
+
+.shortform-suggestion .secondary-button {
+  margin-top: 0.1rem;
+}
+
+.shortform-suggestion__result {
+  min-width: 0;
+}
+
+.shortform-suggestion__result blockquote {
+  margin: 0.4rem 0 0;
+  padding-bottom: 0.45rem;
+  border-bottom: var(--rule);
+  color: var(--color-ink);
+  font-family: var(--font-editorial);
+  font-size: 1.05rem;
+  font-weight: 400;
+  overflow-wrap: break-word;
+}
+
+.shortform-suggestion__result > p {
+  margin-top: 0.35rem;
+  color: var(--color-muted-strong);
+  font-size: 0.875rem;
+}
+
+.shortform-suggestion__error {
+  margin-top: 0.45rem;
+  color: var(--color-muted-strong);
+  font-size: 0.875rem;
+}
+
+.shortform-suggestion__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.1rem;
+  margin-top: 0.5rem;
+}
+
 .shortform-priorities {
   margin: 0.45rem 0 0;
   padding: 0;
@@ -1525,8 +1569,14 @@ label.secondary-button:hover:not(.is-disabled) {
     flex-wrap: wrap;
   }
 
-  .shortform-notice .secondary-button {
+  .shortform-notice .secondary-button,
+  .shortform-suggestion .secondary-button {
     width: 100%;
+  }
+
+  .shortform-suggestion__actions {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .shortform-report .score-block strong {

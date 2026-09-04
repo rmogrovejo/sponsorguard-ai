@@ -5,6 +5,7 @@ import { formatTimestamp } from "../../utils/timestamp";
 import { SectionHeader } from "../shell/SectionHeader";
 import { ShortFormReportView } from "./ShortFormReport";
 import { useShortFormPreflight } from "./useShortFormPreflight";
+import { useShortFormSuggestions } from "./useShortFormSuggestions";
 
 const PHASE_LABELS = {
   idle: "Ready for input",
@@ -32,6 +33,8 @@ export function ShortFormWorkspace() {
     selectFile,
     analyze,
   } = useShortFormPreflight();
+  const { generate: generateSuggestion, dismiss: dismissSuggestion, stateFor } =
+    useShortFormSuggestions(report);
   const requestActive = phase === "analyzing";
 
   const handleFile = (event: ChangeEvent<HTMLInputElement>) => {
@@ -212,6 +215,9 @@ export function ShortFormWorkspace() {
           report={report}
           onRetry={() => void analyze()}
           retrying={requestActive}
+          suggestionStateFor={stateFor}
+          onSuggest={(findingId) => void generateSuggestion(findingId)}
+          onDismissSuggestion={dismissSuggestion}
         />
       )}
     </>

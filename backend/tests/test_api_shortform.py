@@ -49,14 +49,33 @@ class FakeShortFormAnalyzer:
         return self.document
 
 
+class FakeSuggestionGenerator:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    @property
+    def provider_name(self) -> str:
+        return "fake"
+
+    @property
+    def model_name(self) -> str:
+        return "fake-model"
+
+    async def generate_suggestion(self, context: object) -> object:
+        self.calls += 1
+        raise AssertionError("analysis must not generate suggestions")
+
+
 def make_client(
     settings: Settings | None = None,
     shortform_analyzer: FakeShortFormAnalyzer | None = None,
+    shortform_suggestion_generator: FakeSuggestionGenerator | None = None,
 ) -> TestClient:
     return TestClient(
         create_app(
             settings=settings or Settings(),
             shortform_analyzer=shortform_analyzer,
+            shortform_suggestion_generator=shortform_suggestion_generator,
         ),
         raise_server_exceptions=False,
     )
@@ -214,3 +233,17 @@ def test_openapi_exposes_shortform_route() -> None:
     paths = make_client().get("/openapi.json").json()["paths"]
     assert ENDPOINT in paths
     assert "post" in paths[ENDPOINT]
+
+
+def test_analyze_does_not_generate_suggestions(tmp_path: Path) -> None:
+    video = write_test_mp4(tmp_path / "clip.mp4", width=320, height=568, duration_seconds=3.5)
+    suggestions = FakeSuggestionGenerator()
+    response = make_client(shortform_suggestion_generator=suggestions).post(
+        ENDPOINT,
+        data={"platform": "tiktok"},
+        files={"video": ("clip.mp4", video.read_bytes(), "video/mp4")},
+    )
+    assert response.status_code == 200
+    assert suggestions.calls == 0
+    assert "suggested_text" not in response.text
+    assert "SUGGESTED OPENING" not in response.text

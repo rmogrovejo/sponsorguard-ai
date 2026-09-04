@@ -1,11 +1,22 @@
-import type { PreflightFinding, PreflightStatus, ReviewPriority, ShortFormReport } from "../../types/shortform";
-import { PLATFORM_OPTIONS } from "../../types/shortform";
+import type {
+  PreflightFinding,
+  PreflightStatus,
+  ReviewPriority,
+  ShortFormReport,
+  ShortFormSuggestion,
+  SuggestionFindingId,
+} from "../../types/shortform";
+import { PLATFORM_OPTIONS, isSuggestionEligible } from "../../types/shortform";
 import { formatTimestamp, formatTimestampPrecise } from "../../utils/timestamp";
+import type { FindingSuggestionState } from "./useShortFormSuggestions";
 
 interface ShortFormReportViewProps {
   report: ShortFormReport;
   onRetry?: () => void;
   retrying?: boolean;
+  suggestionStateFor?: (findingId: SuggestionFindingId) => FindingSuggestionState;
+  onSuggest?: (findingId: SuggestionFindingId) => void;
+  onDismissSuggestion?: (findingId: SuggestionFindingId) => void;
 }
 
 const STATUS_LABELS = {
@@ -42,7 +53,14 @@ function pixelSize(finding?: PreflightFinding): string | null {
   return null;
 }
 
-export function ShortFormReportView({ report, onRetry, retrying = false }: ShortFormReportViewProps) {
+export function ShortFormReportView({
+  report,
+  onRetry,
+  retrying = false,
+  suggestionStateFor,
+  onSuggest,
+  onDismissSuggestion,
+}: ShortFormReportViewProps) {
   const platformLabel =
     PLATFORM_OPTIONS.find((item) => item.value === report.platform)?.label ?? report.platform;
   const orientation = findingById(report, "orientation");
@@ -111,6 +129,10 @@ export function ShortFormReportView({ report, onRetry, retrying = false }: Short
           finding={opening}
           concise={semanticNotice}
           fallback="Retry preflight to evaluate the opening."
+          suggestionKind="opening"
+          suggestionState={suggestionStateFor?.("opening")}
+          onSuggest={onSuggest}
+          onDismissSuggestion={onDismissSuggestion}
         />
         <PacingBlock finding={pacing} />
         <SemanticBlock
@@ -118,6 +140,10 @@ export function ShortFormReportView({ report, onRetry, retrying = false }: Short
           finding={cta}
           concise={semanticNotice}
           fallback="Retry preflight to evaluate the call to action."
+          suggestionKind="cta"
+          suggestionState={suggestionStateFor?.("cta")}
+          onSuggest={onSuggest}
+          onDismissSuggestion={onDismissSuggestion}
         />
         <ReportTimeline report={report} />
         <PriorityList priorities={report.priorities} />
@@ -248,11 +274,19 @@ function SemanticBlock({
   finding,
   concise,
   fallback,
+  suggestionKind,
+  suggestionState,
+  onSuggest,
+  onDismissSuggestion,
 }: {
   title: string;
   finding?: PreflightFinding;
   concise: boolean;
   fallback: string;
+  suggestionKind: SuggestionFindingId;
+  suggestionState?: FindingSuggestionState;
+  onSuggest?: (findingId: SuggestionFindingId) => void;
+  onDismissSuggestion?: (findingId: SuggestionFindingId) => void;
 }) {
   if (!finding) return null;
   const providerGap = isSemanticProviderGap(finding);
@@ -275,8 +309,121 @@ function SemanticBlock({
           {finding.evidence_text && <blockquote>{finding.evidence_text}</blockquote>}
         </div>
       )}
+      {!providerGap && onSuggest && (
+        <SuggestionPanel
+          finding={finding}
+          kind={suggestionKind}
+          state={suggestionState}
+          onSuggest={onSuggest}
+          onDismiss={onDismissSuggestion}
+        />
+      )}
     </article>
   );
+}
+
+function SuggestionPanel({
+  finding,
+  kind,
+  state,
+  onSuggest,
+  onDismiss,
+}: {
+  finding: PreflightFinding;
+  kind: SuggestionFindingId;
+  state?: FindingSuggestionState;
+  onSuggest: (findingId: SuggestionFindingId) => void;
+  onDismiss?: (findingId: SuggestionFindingId) => void;
+}) {
+  if (!isSuggestionEligible(finding)) return null;
+  const phase = state?.phase ?? "idle";
+  const generating = phase === "generating";
+  const actionLabel = kind === "opening" ? "Suggest stronger opening" : "Suggest CTA";
+  const recommendedLabel = kind === "opening" ? "RECOMMENDED OPENING" : "RECOMMENDED CTA";
+  const showInitialAction = phase === "idle" || (phase === "error" && !state?.suggestion) || (phase === "generating" && !state?.suggestion);
+  return (
+    <div
+      className="shortform-suggestion"
+      aria-busy={generating}
+      aria-live="polite"
+    >
+      {showInitialAction && (
+        <button
+          className="secondary-button"
+          type="button"
+          disabled={generating}
+          onClick={() => onSuggest(kind)}
+        >
+          {generating ? "Suggesting…" : phase === "error" ? "Retry" : actionLabel}
+        </button>
+      )}
+      {phase === "error" && state?.error && (
+        <p className="shortform-suggestion__error" role="alert">
+          {state.error.message}
+        </p>
+      )}
+      {state?.suggestion && (phase === "success" || phase === "error" || phase === "generating") && (
+        <SuggestionResult
+          suggestion={state.suggestion}
+          recommendedLabel={recommendedLabel}
+          regenerating={generating}
+          onRegenerate={() => onSuggest(kind)}
+          onDismiss={onDismiss ? () => onDismiss(kind) : undefined}
+        />
+      )}
+    </div>
+  );
+}
+
+function SuggestionResult({
+  suggestion,
+  recommendedLabel,
+  regenerating = false,
+  onRegenerate,
+  onDismiss,
+}: {
+  suggestion: ShortFormSuggestion;
+  recommendedLabel: string;
+  regenerating?: boolean;
+  onRegenerate: () => void;
+  onDismiss?: () => void;
+}) {
+  return (
+    <div className="shortform-suggestion__result">
+      <p className="mono-label">{recommendedLabel}</p>
+      <p className="mono-label">{suggestion.display_label}</p>
+      {suggestion.suggested_text && (
+        <blockquote cite="suggestion">{suggestion.suggested_text}</blockquote>
+      )}
+      <p>{suggestion.reason}</p>
+      <p className="mono-label">PLACEMENT</p>
+      <p className="shortform-range">{formatSuggestionPlacement(suggestion)}</p>
+      <div className="shortform-suggestion__actions">
+        <button className="text-button" type="button" disabled={regenerating} onClick={onRegenerate}>
+          {regenerating ? "Suggesting…" : "Regenerate"}
+        </button>
+        {onDismiss && (
+          <button className="text-button" type="button" disabled={regenerating} onClick={onDismiss}>
+            Dismiss suggestion
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatSuggestionPlacement(suggestion: ShortFormSuggestion): string {
+  const { placement } = suggestion;
+  if (placement.strategy === "replace_opening" && placement.start_seconds != null && placement.end_seconds != null) {
+    return `Replace opening / ${formatTimestampPrecise(placement.start_seconds)}–${formatTimestampPrecise(placement.end_seconds)}`;
+  }
+  if (placement.strategy === "opening_first_seconds") {
+    return "Opening / first seconds";
+  }
+  if (placement.after_seconds != null) {
+    return `Near ending / after ${formatTimestampPrecise(placement.after_seconds)}`;
+  }
+  return "Near ending";
 }
 
 function PacingBlock({ finding }: { finding?: PreflightFinding }) {

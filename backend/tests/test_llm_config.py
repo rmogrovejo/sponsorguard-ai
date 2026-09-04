@@ -13,14 +13,22 @@ from app.core.config import (
 from app.integrations.llm.exceptions import LLMConfigurationError
 from app.domain.requirements import RequiredTalkingPointRequirement
 from app.domain.transcript import TranscriptSegment
+from app.domain.shortform import ShortFormPlatform
+from app.domain.shortform_suggestions import SuggestionType
 from app.integrations.llm.factory import (
     create_fix_generator,
     create_requirement_extractor,
     create_semantic_verifier,
     create_shortform_analyzer,
+    create_shortform_suggestion_generator,
 )
 from app.integrations.llm.gemini_shortform_provider import GeminiShortFormAnalyzer
+from app.integrations.llm.gemini_shortform_suggestion_provider import (
+    GeminiShortFormSuggestionGenerator,
+)
 from app.integrations.llm.shortform_request import ShortFormSemanticRequest
+from app.services.shortform_suggestions import build_suggestion_context
+from tests.shortform_suggestion_fixtures import OPENING_SEGMENTS, opening_finding
 from app.domain.media import TimeRange
 from app.integrations.llm.gemini_provider import GeminiRequirementExtractor
 from app.integrations.llm.gemini_fix_provider import GeminiFixGenerator
@@ -219,6 +227,36 @@ def test_missing_key_keeps_shortform_analysis_behind_controlled_boundary() -> No
 
     with pytest.raises(LLMConfigurationError, match="not configured"):
         asyncio.run(analyzer.analyze_shortform(request))
+
+
+def test_gemini_shortform_suggestion_generator_uses_semantic_timeout() -> None:
+    generator = create_shortform_suggestion_generator(
+        Settings(
+            llm_provider="gemini",
+            llm_model="gemini-configured-model",
+            gemini_api_key="test-placeholder-not-a-real-key",
+            llm_timeout_seconds=11,
+            semantic_timeout_seconds=73,
+        )
+    )
+
+    assert isinstance(generator, GeminiShortFormSuggestionGenerator)
+    assert generator.model_name == "gemini-configured-model"
+    assert generator._timeout_seconds == 73  # type: ignore[attr-defined]
+
+
+def test_missing_key_keeps_shortform_suggestions_behind_controlled_boundary() -> None:
+    generator = create_shortform_suggestion_generator(Settings())
+    context = build_suggestion_context(
+        opening_finding(),
+        OPENING_SEGMENTS,
+        finding_id=SuggestionType.OPENING,
+        platform=ShortFormPlatform.TIKTOK,
+        video_duration_seconds=30.0,
+    )
+
+    with pytest.raises(LLMConfigurationError, match="not configured"):
+        asyncio.run(generator.generate_suggestion(context))
 
 
 def test_provider_keys_are_excluded_from_settings_representation() -> None:

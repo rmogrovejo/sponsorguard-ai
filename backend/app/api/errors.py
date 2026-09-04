@@ -25,6 +25,10 @@ from app.services.fix_generation import (
     FixGenerationInputErrorCode,
 )
 from app.services.media_errors import MediaInspectionError, MediaInspectionErrorCode
+from app.services.shortform_suggestions import (
+    SuggestionInputError,
+    SuggestionInputErrorCode,
+)
 
 
 logger = logging.getLogger("sponsorguard.api")
@@ -36,6 +40,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(TranscriptParseError, invalid_transcript_handler)
     app.add_exception_handler(ComplianceInputError, compliance_input_handler)
     app.add_exception_handler(FixGenerationInputError, fix_input_handler)
+    app.add_exception_handler(SuggestionInputError, suggestion_input_handler)
     app.add_exception_handler(MediaInspectionError, media_inspection_handler)
     app.add_exception_handler(LLMProviderError, llm_provider_error_handler)
     app.add_exception_handler(Exception, internal_error_handler)
@@ -145,6 +150,29 @@ async def fix_input_handler(
     )
 
 
+async def suggestion_input_handler(
+    request: Request,
+    error: Exception,
+) -> JSONResponse:
+    assert isinstance(error, SuggestionInputError)
+    code = (
+        APIErrorCode.SUGGESTION_NOT_ELIGIBLE
+        if error.code is SuggestionInputErrorCode.INELIGIBLE_FINDING
+        else APIErrorCode.INVALID_SUGGESTION_INPUT
+    )
+    message = (
+        "This finding is not eligible for a suggestion."
+        if code is APIErrorCode.SUGGESTION_NOT_ELIGIBLE
+        else "The suggestion request does not match the Short-Form finding."
+    )
+    return build_error_response(
+        code=code,
+        message=message,
+        status_code=status.HTTP_400_BAD_REQUEST,
+        details={"reason_code": error.code.value},
+    )
+
+
 async def media_inspection_handler(
     request: Request,
     error: Exception,
@@ -184,14 +212,27 @@ async def llm_provider_error_handler(
 ) -> JSONResponse:
     assert isinstance(error, LLMProviderError)
     is_fix_request = request.url.path.startswith("/api/v1/fixes/")
+    is_suggestion_request = "/shortform/suggestions/" in request.url.path
+    if is_suggestion_request:
+        operation = "suggestion"
+        event = "shortform_suggestion_failed"
+        log_message = "Controlled short-form suggestion failure"
+    elif is_fix_request:
+        operation = "fix"
+        event = "fix_generation_failed"
+        log_message = "Controlled fix generation failure"
+    else:
+        operation = "extraction"
+        event = "brief_extraction_failed"
+        log_message = "Controlled requirement extraction failure"
     code, message, status_code = _llm_error_response_policy(
         error,
-        operation="fix" if is_fix_request else "extraction",
+        operation=operation,
     )
     logger.warning(
-        "Controlled fix generation failure" if is_fix_request else "Controlled requirement extraction failure",
+        log_message,
         extra={
-            "event": "fix_generation_failed" if is_fix_request else "brief_extraction_failed",
+            "event": event,
             "request_id": getattr(request.state, "request_id", None),
             "method": request.method,
             "path": request.url.path,
@@ -275,7 +316,12 @@ def _llm_error_response_policy(
     *,
     operation: str = "extraction",
 ) -> tuple[APIErrorCode, str, int]:
-    label = "Fix generation" if operation == "fix" else "Requirement extraction"
+    if operation == "fix":
+        label = "Fix generation"
+    elif operation == "suggestion":
+        label = "Suggestion generation"
+    else:
+        label = "Requirement extraction"
     if isinstance(error, LLMProviderTimeoutError):
         return (
             APIErrorCode.LLM_PROVIDER_TIMEOUT,

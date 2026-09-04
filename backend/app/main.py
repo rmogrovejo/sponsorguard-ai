@@ -12,12 +12,14 @@ from app.integrations.llm.base import (
     LLMRequirementExtractor,
     SemanticVerifier,
     ShortFormSemanticAnalyzer,
+    ShortFormSuggestionGenerator,
 )
 from app.integrations.llm.factory import (
     create_fix_generator,
     create_requirement_extractor,
     create_semantic_verifier,
     create_shortform_analyzer,
+    create_shortform_suggestion_generator,
 )
 
 
@@ -27,6 +29,7 @@ def create_app(
     semantic_verifier: SemanticVerifier | None = None,
     fix_generator: FixGenerator | None = None,
     shortform_analyzer: ShortFormSemanticAnalyzer | None = None,
+    shortform_suggestion_generator: ShortFormSuggestionGenerator | None = None,
 ) -> FastAPI:
     resolved_settings = settings or Settings.from_environment()
     configure_logging()
@@ -47,6 +50,10 @@ def create_app(
     )
     application.state.shortform_analyzer = (
         shortform_analyzer or create_shortform_analyzer(resolved_settings)
+    )
+    application.state.shortform_suggestion_generator = (
+        shortform_suggestion_generator
+        or create_shortform_suggestion_generator(resolved_settings)
     )
     application.state.settings = resolved_settings
     register_exception_handlers(application)

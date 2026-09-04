@@ -6,6 +6,10 @@ from app.domain.fixes import FixProviderOutput
 from app.domain.requirements import Requirement
 from app.domain.semantic import SemanticRequirement, SemanticVerificationOutput
 from app.domain.shortform_speech import ShortFormProviderDocument
+from app.domain.shortform_suggestions import (
+    ShortFormSuggestionContext,
+    ShortFormSuggestionProviderOutput,
+)
 from app.domain.transcript import TranscriptSegment
 from app.integrations.llm.shortform_request import ShortFormSemanticRequest
 
@@ -70,3 +74,18 @@ class ShortFormSemanticAnalyzer(Protocol):
         self,
         request: ShortFormSemanticRequest,
     ) -> ShortFormProviderDocument: ...
+
+
+class ShortFormSuggestionGenerator(Protocol):
+    """Narrow provider boundary for one advisory opening or CTA suggestion."""
+
+    @property
+    def provider_name(self) -> str: ...
+
+    @property
+    def model_name(self) -> str: ...
+
+    async def generate_suggestion(
+        self,
+        context: ShortFormSuggestionContext,
+    ) -> ShortFormSuggestionProviderOutput: ...
