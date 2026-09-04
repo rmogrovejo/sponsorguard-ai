@@ -25,8 +25,8 @@ def create_app(
     configure_logging()
 
     application = FastAPI(
-        title="SponsorGuard API",
-        description="API for automated creator sponsorship QA.",
+        title="CreatorPreflight API",
+        description="API for CreatorPreflight short-form QA and SponsorGuard sponsorship compliance.",
         version="0.1.0",
     )
     application.state.requirement_extractor = (
@@ -38,6 +38,7 @@ def create_app(
     application.state.fix_generator = (
         fix_generator or create_fix_generator(resolved_settings)
     )
+    application.state.settings = resolved_settings
     register_exception_handlers(application)
     application.include_router(health_router)
     application.include_router(v1_router)
@@ -45,6 +46,7 @@ def create_app(
     application.add_middleware(
         RequestBodyLimitMiddleware,
         max_body_bytes=resolved_settings.max_request_body_bytes,
+        shortform_max_upload_bytes=resolved_settings.shortform_max_upload_bytes,
     )
     application.add_middleware(
         CORSMiddleware,

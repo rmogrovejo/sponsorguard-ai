@@ -26,8 +26,14 @@
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
   /* Structure and motion */
-  --page-width: 82rem;
-  --page-gutter: clamp(1.125rem, 4vw, 3rem);
+  --page-width: 84rem;
+  --page-gutter: clamp(1rem, 3vw, 2rem);
+  --page-shell-gutter: 2rem;
+  --nav-width: 14.5rem;
+  --section-meta: 9rem;
+  --section-gap: 1.25rem;
+  --heading-desc-gap: 0.6rem;
+  --form-measure: 52rem;
   --rule: 1px solid var(--color-border);
   --rule-strong: 1px solid var(--color-border-strong);
   --radius-precise: 2px;

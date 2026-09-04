@@ -9,6 +9,7 @@ DEFAULT_ALLOWED_ORIGINS = (
     "http://127.0.0.1:5173",
 )
 DEFAULT_MAX_REQUEST_BODY_BYTES = 2_100_000
+DEFAULT_SHORTFORM_MAX_UPLOAD_BYTES = 25_000_000
 DEFAULT_LLM_PROVIDER = "gemini"
 DEFAULT_GEMINI_MODEL = "gemini-3.7-flash"
 DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
@@ -20,6 +21,7 @@ DEFAULT_SEMANTIC_TIMEOUT_SECONDS = 60.0
 class Settings:
     allowed_origins: tuple[str, ...] = DEFAULT_ALLOWED_ORIGINS
     max_request_body_bytes: int = DEFAULT_MAX_REQUEST_BODY_BYTES
+    shortform_max_upload_bytes: int = DEFAULT_SHORTFORM_MAX_UPLOAD_BYTES
     llm_provider: str = DEFAULT_LLM_PROVIDER
     llm_model: str | None = None
     gemini_api_key: str | None = field(default=None, repr=False)
@@ -30,6 +32,8 @@ class Settings:
     def __post_init__(self) -> None:
         if self.max_request_body_bytes < 1:
             raise ValueError("max_request_body_bytes must be positive")
+        if self.shortform_max_upload_bytes < 1:
+            raise ValueError("shortform_max_upload_bytes must be positive")
         if not self.allowed_origins:
             raise ValueError("at least one allowed origin is required")
         if not self.llm_provider.strip():
@@ -80,6 +84,17 @@ class Settings:
                     "SPONSORGUARD_MAX_REQUEST_BODY_BYTES must be an integer"
                 ) from error
 
+        raw_shortform_limit = os.getenv("SPONSORGUARD_SHORTFORM_MAX_UPLOAD_BYTES")
+        if raw_shortform_limit is None:
+            shortform_limit = DEFAULT_SHORTFORM_MAX_UPLOAD_BYTES
+        else:
+            try:
+                shortform_limit = int(raw_shortform_limit)
+            except ValueError as error:
+                raise ValueError(
+                    "SPONSORGUARD_SHORTFORM_MAX_UPLOAD_BYTES must be an integer"
+                ) from error
+
         raw_timeout = os.getenv("SPONSORGUARD_LLM_TIMEOUT_SECONDS")
         if raw_timeout is None:
             llm_timeout_seconds = DEFAULT_LLM_TIMEOUT_SECONDS
@@ -109,6 +124,7 @@ class Settings:
         return cls(
             allowed_origins=allowed_origins,
             max_request_body_bytes=body_limit,
+            shortform_max_upload_bytes=shortform_limit,
             llm_provider=os.getenv(
                 "SPONSORGUARD_LLM_PROVIDER", DEFAULT_LLM_PROVIDER
             ).strip(),

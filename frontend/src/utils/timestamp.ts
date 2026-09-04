@@ -16,3 +16,13 @@ export function formatTimestamp(seconds: number): string {
 
   return `${minuteText}:${secondText}`;
 }
+
+export function formatTimestampPrecise(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return "--:--";
+  }
+  const totalHundredths = Math.round(seconds * 100);
+  const wholeSeconds = Math.floor(totalHundredths / 100);
+  const hundredths = totalHundredths % 100;
+  return `${formatTimestamp(wholeSeconds)}.${hundredths.toString().padStart(2, "0")}`;
+}

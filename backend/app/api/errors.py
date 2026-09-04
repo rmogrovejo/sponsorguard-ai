@@ -24,6 +24,7 @@ from app.services.fix_generation import (
     FixGenerationInputError,
     FixGenerationInputErrorCode,
 )
+from app.services.media_errors import MediaInspectionError, MediaInspectionErrorCode
 
 
 logger = logging.getLogger("sponsorguard.api")
@@ -35,6 +36,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(TranscriptParseError, invalid_transcript_handler)
     app.add_exception_handler(ComplianceInputError, compliance_input_handler)
     app.add_exception_handler(FixGenerationInputError, fix_input_handler)
+    app.add_exception_handler(MediaInspectionError, media_inspection_handler)
     app.add_exception_handler(LLMProviderError, llm_provider_error_handler)
     app.add_exception_handler(Exception, internal_error_handler)
 
@@ -135,6 +137,39 @@ async def fix_input_handler(
         if code is APIErrorCode.FIX_NOT_ELIGIBLE
         else "The fix-generation request is inconsistent with the transcript."
     )
+    return build_error_response(
+        code=code,
+        message=message,
+        status_code=status.HTTP_400_BAD_REQUEST,
+        details={"reason_code": error.code.value},
+    )
+
+
+async def media_inspection_handler(
+    request: Request,
+    error: Exception,
+) -> JSONResponse:
+    assert isinstance(error, MediaInspectionError)
+    if error.code is MediaInspectionErrorCode.MEDIA_TOO_LARGE:
+        return build_error_response(
+            code=APIErrorCode.MEDIA_TOO_LARGE,
+            message="The video exceeds the allowed size.",
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            details={"reason_code": error.code.value},
+        )
+    if error.code is MediaInspectionErrorCode.EMPTY_UPLOAD:
+        message = "Upload an MP4 video before running preflight."
+        code = APIErrorCode.INVALID_MEDIA
+    elif error.code in {
+        MediaInspectionErrorCode.UNSUPPORTED_MEDIA,
+        MediaInspectionErrorCode.CORRUPT_MEDIA,
+        MediaInspectionErrorCode.UNSAFE_FILENAME,
+    }:
+        message = "The uploaded file is not a readable MP4 video."
+        code = APIErrorCode.UNSUPPORTED_MEDIA
+    else:
+        message = "The video could not be inspected."
+        code = APIErrorCode.INVALID_MEDIA
     return build_error_response(
         code=code,
         message=message,

@@ -307,7 +307,7 @@ describe("review workflow", () => {
     expect(screen.getByRole("button", { name: "Analyzing review…" })).toBeDisabled();
     expect(submittedRequest).not.toBeNull();
     completeRequest(jsonResponse(responseForRequest(submittedRequest!)));
-    await screen.findByText("Report complete");
+    await screen.findByText(/Report complete/);
   });
 
   it("provides semantic labels for controls and result statuses", async () => {

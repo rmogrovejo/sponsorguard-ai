@@ -1,5 +1,6 @@
 import type { RequirementDraft } from "../../types/compliance";
 import type { ReviewValidationErrors } from "../review/reviewValidation";
+import { SectionHeader } from "../shell/SectionHeader";
 import { RequirementEditor } from "./RequirementEditor";
 
 interface RequirementsSectionProps {
@@ -21,21 +22,22 @@ export function RequirementsSection({
 }: RequirementsSectionProps) {
   return (
     <section className="review-section" aria-labelledby="requirements-heading">
-      <header className="review-section__header">
-        <div className="section-number mono-label">03 / REQUIREMENTS</div>
-        <div>
-          <h2 id="requirements-heading">Sponsorship requirements</h2>
-          <p>Define the deterministic checks this creator submission must pass.</p>
-        </div>
-        <button
-          className="secondary-button"
-          type="button"
-          disabled={disabled}
-          onClick={onAdd}
-        >
-          Add requirement
-        </button>
-      </header>
+      <SectionHeader
+        step="03 / REQUIREMENTS"
+        title="Sponsorship requirements"
+        titleId="requirements-heading"
+        description="Define the deterministic checks this creator submission must pass."
+        action={
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={disabled}
+            onClick={onAdd}
+          >
+            Add requirement
+          </button>
+        }
+      />
 
       {errors.requirements && (
         <p className="section-error" id="requirements-error" role="alert">

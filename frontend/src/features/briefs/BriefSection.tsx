@@ -1,5 +1,6 @@
 import type { BriefExtractionPhase, ExtractedRequirement } from "../../types/briefs";
 import { getRequirementLabel } from "../requirements/requirementModel";
+import { SectionHeader } from "../shell/SectionHeader";
 import { MAX_BRIEF_CHARACTERS, type BriefExtractionError } from "./useBriefExtraction";
 
 interface BriefSectionProps {
@@ -39,24 +40,22 @@ export function BriefSection({
 
   return (
     <section className="review-section brief-section" aria-labelledby="brief-heading">
-      <header className="review-section__header">
-        <div className="section-number mono-label">02 / SPONSOR BRIEF</div>
-        <div>
-          <h2 id="brief-heading">Sponsor brief</h2>
-          <p>
-            Extract explicit campaign instructions into a checklist, then review
-            every rule before using it.
-          </p>
-        </div>
-        <button
-          className="secondary-button"
-          type="button"
-          disabled={disabled || extracting}
-          onClick={onExtract}
-        >
-          {extracting ? "Reading sponsor brief…" : "Extract requirements"}
-        </button>
-      </header>
+      <SectionHeader
+        step="02 / SPONSOR BRIEF"
+        title="Sponsor brief"
+        titleId="brief-heading"
+        description="Extract explicit campaign instructions into a checklist, then review every rule before using it."
+        action={
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={disabled || extracting}
+            onClick={onExtract}
+          >
+            {extracting ? "Reading sponsor brief…" : "Extract requirements"}
+          </button>
+        }
+      />
 
       <div className="form-field brief-field">
         <label htmlFor="sponsor-brief">Campaign document</label>

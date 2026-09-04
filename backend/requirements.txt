@@ -1,7 +1,9 @@
+av>=14,<16
 fastapi>=0.116,<1.0
 google-genai>=2.22,<3.0
 httpx2>=2.0,<3.0
 openai>=2.0,<3.0
 pydantic>=2.11,<3.0
 pytest>=8.4,<9.0
+python-multipart>=0.0.9,<1.0
 uvicorn[standard]>=0.35,<1.0

@@ -1,5 +1,7 @@
 import { useRef, useState, type ChangeEvent } from "react";
 
+import { SectionHeader } from "../shell/SectionHeader";
+
 const MAX_SRT_FILE_BYTES = 2_000_000;
 
 interface TranscriptSectionProps {
@@ -71,13 +73,12 @@ export function TranscriptSection({
 
   return (
     <section className="review-section" aria-labelledby="transcript-heading">
-      <header className="review-section__header review-section__header--compact">
-        <div className="section-number mono-label">04 / TRANSCRIPT</div>
-        <div>
-          <h2 id="transcript-heading">Creator transcript</h2>
-          <p>Paste SRT text directly or load a UTF-8 .srt file from this device.</p>
-        </div>
-      </header>
+      <SectionHeader
+        step="04 / TRANSCRIPT"
+        title="Creator transcript"
+        titleId="transcript-heading"
+        description="Paste SRT text directly or load a UTF-8 .srt file from this device."
+      />
 
       <div className="transcript-toolbar">
         <div>

@@ -9,6 +9,7 @@ import {
   createRequirementDraft,
 } from "../requirements/requirementModel";
 import { RequirementsSection } from "../requirements/RequirementsSection";
+import { SectionHeader } from "../shell/SectionHeader";
 import { TranscriptSection } from "../transcript/TranscriptSection";
 import { useComplianceAnalysis } from "./useComplianceAnalysis";
 
@@ -118,23 +119,21 @@ export function ReviewWorkspace() {
       >
         <div className="workspace-docket">
           <div>
-            <p className="mono-label">REVIEW WORKSPACE</p>
+            <p className="mono-label">SPONSORGUARD / REVIEW WORKSPACE</p>
             <h2>Create pre-publish review</h2>
           </div>
-          <div className="request-state" aria-live="polite">
-            <span className={`request-state__mark request-state__mark--${phase}`} />
-            <span>{PHASE_LABELS[phase]}</span>
-          </div>
+          <p className="request-state" aria-live="polite">
+            Status / {PHASE_LABELS[phase]}
+          </p>
         </div>
 
         <section className="review-section" aria-labelledby="campaign-heading">
-          <header className="review-section__header review-section__header--compact">
-            <div className="section-number mono-label">01 / REVIEW</div>
-            <div>
-              <h2 id="campaign-heading">Campaign identity</h2>
-              <p>Name this review so its findings remain easy to identify.</p>
-            </div>
-          </header>
+          <SectionHeader
+            step="01 / REVIEW"
+            title="Campaign identity"
+            titleId="campaign-heading"
+            description="Name this review so its findings remain easy to identify."
+          />
           <div className="form-field campaign-field">
             <label htmlFor="campaign-name">Campaign or review name</label>
             <input

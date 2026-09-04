@@ -46,9 +46,18 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
 
 class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: ASGIApp, *, max_body_bytes: int) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        max_body_bytes: int,
+        shortform_max_upload_bytes: int | None = None,
+    ) -> None:
         super().__init__(app)
         self.max_body_bytes = max_body_bytes
+        self.shortform_max_upload_bytes = (
+            shortform_max_upload_bytes or max_body_bytes
+        )
 
     async def dispatch(
         self,
@@ -61,19 +70,34 @@ class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
                 body_size = int(content_length)
             except ValueError:
                 body_size = 0
-            if body_size > self.max_body_bytes:
-                is_brief_extraction = request.url.path == "/api/v1/briefs/extract"
+            limit, code, message = self._limit_for(request.url.path)
+            if body_size > limit:
                 return build_error_response(
-                    code=(
-                        APIErrorCode.BRIEF_TOO_LARGE
-                        if is_brief_extraction
-                        else APIErrorCode.TRANSCRIPT_TOO_LARGE
-                    ),
-                    message="The request body exceeds the allowed size.",
+                    code=code,
+                    message=message,
                     status_code=413,
-                    details={"max_body_bytes": self.max_body_bytes},
+                    details={"max_body_bytes": limit},
                 )
         return await call_next(request)
+
+    def _limit_for(self, path: str) -> tuple[int, APIErrorCode, str]:
+        if path.startswith("/api/v1/shortform/"):
+            return (
+                self.shortform_max_upload_bytes,
+                APIErrorCode.MEDIA_TOO_LARGE,
+                "The video exceeds the allowed size.",
+            )
+        if path == "/api/v1/briefs/extract":
+            return (
+                self.max_body_bytes,
+                APIErrorCode.BRIEF_TOO_LARGE,
+                "The request body exceeds the allowed size.",
+            )
+        return (
+            self.max_body_bytes,
+            APIErrorCode.TRANSCRIPT_TOO_LARGE,
+            "The request body exceeds the allowed size.",
+        )
 
 
 def resolve_request_id(candidate: str | None) -> str:

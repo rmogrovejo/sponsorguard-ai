@@ -85,8 +85,89 @@ dd {
     var(--color-paper);
 }
 
+.product-layout {
+  display: grid;
+  grid-template-columns: var(--nav-width) minmax(0, 1fr);
+  align-items: start;
+  width: min(100%, var(--page-width));
+  max-width: var(--page-width);
+  margin-inline: auto;
+}
+
+.product-rail {
+  position: sticky;
+  top: 0;
+  min-height: calc(100vh - 4.25rem);
+  padding: 1.25rem 1rem 2rem;
+  border-right: var(--rule);
+}
+
+.product-rail__label {
+  margin-bottom: 0.85rem;
+  color: var(--color-muted);
+}
+
+.product-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.product-nav button,
+.product-nav__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-precise);
+  background: transparent;
+  color: var(--color-ink);
+  text-align: left;
+}
+
+.product-nav button[aria-current="page"] {
+  border-color: var(--color-ink);
+  background: var(--color-paper-light);
+}
+
+.product-nav button strong,
+.product-nav__placeholder strong {
+  min-width: 0;
+  max-width: 100%;
+  font-family: var(--font-editorial);
+  font-size: 1.05rem;
+  font-weight: 400;
+  overflow-wrap: break-word;
+}
+
+.product-nav button span,
+.product-nav__placeholder span {
+  color: var(--color-muted-strong);
+  font-size: 0.75rem;
+}
+
+.product-nav__placeholder {
+  color: var(--color-muted);
+}
+
+.product-nav__placeholder strong {
+  color: var(--color-muted-strong);
+}
+
+.product-stage {
+  min-width: 0;
+  padding-inline: var(--page-gutter);
+  padding-bottom: 2rem;
+}
+
 .page-frame {
   width: min(100%, var(--page-width));
+  max-width: var(--page-width);
   margin-inline: auto;
   padding-inline: var(--page-gutter);
 }
@@ -115,16 +196,18 @@ dd {
 }
 
 .masthead__inner {
-  min-height: 5.25rem;
+  min-height: 4.15rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 2rem;
+  gap: 1.5rem;
+  min-width: 0;
 }
 
 .wordmark {
   display: inline-flex;
-  flex-shrink: 0;
+  min-width: 0;
+  flex-shrink: 1;
   align-items: center;
   gap: 0.8rem;
   color: var(--color-ink);
@@ -144,11 +227,12 @@ dd {
 }
 
 .wordmark__name {
+  min-width: 0;
   font-family: var(--font-editorial);
   font-size: 1.125rem;
   font-weight: 700;
   letter-spacing: -0.015em;
-  white-space: nowrap;
+  overflow-wrap: break-word;
 }
 
 .wordmark__name span {
@@ -190,6 +274,7 @@ dd {
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
+  min-width: 0;
   padding-bottom: 0.9rem;
   border-bottom: 2px solid var(--color-ink);
   color: var(--color-graphite);
@@ -197,6 +282,11 @@ dd {
   font-weight: 750;
   letter-spacing: 0.075em;
   text-transform: uppercase;
+}
+
+.section-index > * {
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .section-index .mono-label {
@@ -215,9 +305,56 @@ dd {
   text-transform: uppercase;
 }
 
+@media (min-width: 1360px) {
+  .product-layout,
+  .page-frame {
+    width: calc(100% - (2 * var(--page-shell-gutter)));
+  }
+}
+
+@media (max-width: 900px) {
+  .product-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .product-rail {
+    position: static;
+    min-height: 0;
+    padding: 0.85rem var(--page-gutter) 0.5rem;
+    border-right: 0;
+    border-bottom: var(--rule);
+  }
+
+  .product-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .product-nav button,
+  .product-nav__placeholder {
+    width: auto;
+    min-width: 9.5rem;
+  }
+}
+
+@media (max-width: 430px) {
+  .product-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+
+  .product-nav button,
+  .product-nav__placeholder {
+    min-width: 0;
+    width: 100%;
+    padding: 0.55rem 0.6rem;
+  }
+}
+
 @media (max-width: 680px) {
   .masthead__inner {
-    min-height: 4.75rem;
+    min-height: 3.75rem;
     gap: 0.75rem;
   }
 
@@ -229,8 +366,12 @@ dd {
     display: none;
   }
 
+  .wordmark__name {
+    font-size: 1rem;
+  }
+
   .section-index > :first-child {
-    max-width: 13rem;
+    max-width: 14rem;
   }
 
   .page-note {
