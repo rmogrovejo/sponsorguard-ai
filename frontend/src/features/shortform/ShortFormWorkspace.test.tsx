@@ -352,6 +352,29 @@ describe("ShortFormWorkspace", () => {
     expect(screen.getByText("Not evaluated")).toBeVisible();
   });
 
+  it("does not persist a selected video file and asks the user to reselect after restore", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: undefined,
+    });
+    render(
+      <ShortFormWorkspace
+        initialPlatform="instagram_reels"
+        restoredVideoSelected
+      />,
+    );
+    expect(screen.getByRole("radio", { name: /Instagram Reels/i })).toBeChecked();
+    expect(screen.getByText("Local video must be selected again after refresh.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Start preflight" })).toBeDisabled();
+
+    await user.upload(screen.getByLabelText("Choose MP4"), mp4File());
+    expect(await screen.findByText("clip.mp4")).toBeVisible();
+    expect(
+      screen.queryByText("Local video must be selected again after refresh."),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows analyzing state while the request is in flight", async () => {
     const user = userEvent.setup();
     let release!: (value: Response) => void;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import type { RequirementDraft } from "../../types/compliance";
+import type { SponsoredContentDraft } from "../persistence/draftSchema";
 import { BriefSection } from "../briefs/BriefSection";
 import { useBriefExtraction } from "../briefs/useBriefExtraction";
 import { ComplianceReport } from "../compliance/ComplianceReport";
@@ -21,14 +22,32 @@ const PHASE_LABELS = {
   error: "Action required",
 } as const;
 
-export function ReviewWorkspace() {
-  const [campaignName, setCampaignName] = useState("");
-  const [sponsorBrief, setSponsorBrief] = useState("");
-  const [requirements, setRequirements] = useState<RequirementDraft[]>(() => [
-    createRequirementDraft(),
-  ]);
-  const [transcriptContent, setTranscriptContent] = useState("");
-  const [fileName, setFileName] = useState<string | null>(null);
+interface ReviewWorkspaceProps {
+  initialCampaignName?: string;
+  initialSponsorBrief?: string;
+  initialRequirements?: RequirementDraft[];
+  initialTranscriptContent?: string;
+  initialTranscriptFileName?: string | null;
+  onDraftChange?: (draft: SponsoredContentDraft) => void;
+}
+
+export function ReviewWorkspace({
+  initialCampaignName = "",
+  initialSponsorBrief = "",
+  initialRequirements,
+  initialTranscriptContent = "",
+  initialTranscriptFileName = null,
+  onDraftChange,
+}: ReviewWorkspaceProps = {}) {
+  const [campaignName, setCampaignName] = useState(initialCampaignName);
+  const [sponsorBrief, setSponsorBrief] = useState(initialSponsorBrief);
+  const [requirements, setRequirements] = useState<RequirementDraft[]>(() =>
+    initialRequirements && initialRequirements.length > 0
+      ? initialRequirements
+      : [createRequirementDraft()],
+  );
+  const [transcriptContent, setTranscriptContent] = useState(initialTranscriptContent);
+  const [fileName, setFileName] = useState<string | null>(initialTranscriptFileName);
   const reportHeadingRef = useRef<HTMLHeadingElement>(null);
   const {
     phase,
@@ -40,6 +59,22 @@ export function ReviewWorkspace() {
   } = useComplianceAnalysis();
   const briefExtraction = useBriefExtraction();
   const requestActive = phase === "validating" || phase === "analyzing";
+  const skipDraftPublish = useRef(true);
+
+  useEffect(() => {
+    if (!onDraftChange) return;
+    if (skipDraftPublish.current) {
+      skipDraftPublish.current = false;
+      return;
+    }
+    onDraftChange({
+      campaignName,
+      sponsorBrief,
+      requirements,
+      transcriptContent,
+      transcriptFileName: fileName,
+    });
+  }, [campaignName, sponsorBrief, requirements, transcriptContent, fileName, onDraftChange]);
 
   useEffect(() => {
     if (phase === "success") {

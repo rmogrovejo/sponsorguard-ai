@@ -8,6 +8,7 @@ import {
   responseForRequest,
   VALID_SRT,
 } from "../../test/testData";
+import { sampleDraft } from "../persistence/draftTestFixtures";
 import { ReviewWorkspace } from "./ReviewWorkspace";
 
 async function fillFirstRequirement(
@@ -721,5 +722,29 @@ describe("review workflow", () => {
     await user.click(screen.getByRole("button", { name: /dismiss suggestion/i }));
     expect(screen.queryByText("RECOMMENDED CHANGE")).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /generate fix/i })).toHaveLength(2);
+  });
+
+  it("restores authored requirements and transcript without analyzing", () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+    const draft = sampleDraft();
+    render(
+      <ReviewWorkspace
+        initialCampaignName={draft.sponsoredContent.campaignName}
+        initialSponsorBrief={draft.sponsoredContent.sponsorBrief}
+        initialRequirements={draft.sponsoredContent.requirements}
+        initialTranscriptContent={draft.sponsoredContent.transcriptContent}
+        initialTranscriptFileName={draft.sponsoredContent.transcriptFileName}
+      />,
+    );
+    expect(screen.getByLabelText("Campaign or review name")).toHaveValue(
+      "AcmeVPN September Campaign",
+    );
+    expect(screen.getByLabelText("Requirement 1 description")).toHaveValue("Mention AcmeVPN");
+    expect(screen.getByLabelText("Requirement 2 target value")).toHaveValue("SAVE20");
+    expect(screen.getByLabelText("SRT transcript")).toHaveValue(
+      draft.sponsoredContent.transcriptContent,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

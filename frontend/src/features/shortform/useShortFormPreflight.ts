@@ -55,8 +55,8 @@ function inspectLocalVideo(file: File): Promise<LocalVideoSelection> {
   });
 }
 
-export function useShortFormPreflight() {
-  const [platform, setPlatform] = useState<ShortFormPlatform>("tiktok");
+export function useShortFormPreflight(initialPlatform: ShortFormPlatform = "tiktok") {
+  const [platform, setPlatform] = useState<ShortFormPlatform>(initialPlatform);
   const [selection, setSelection] = useState<LocalVideoSelection | null>(null);
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const [phase, setPhase] = useState<ShortFormPhase>("idle");

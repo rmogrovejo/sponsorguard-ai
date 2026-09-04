@@ -1,7 +1,9 @@
-import { useRef, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useRef, type ChangeEvent, type FormEvent } from "react";
 
 import { PLATFORM_OPTIONS, SHORTFORM_MAX_UPLOAD_BYTES } from "../../types/shortform";
+import type { ShortFormPlatform } from "../../types/shortform";
 import { formatTimestamp } from "../../utils/timestamp";
+import type { ShortFormDraft } from "../persistence/draftSchema";
 import { SectionHeader } from "../shell/SectionHeader";
 import { ShortFormReportView } from "./ShortFormReport";
 import { useShortFormPreflight } from "./useShortFormPreflight";
@@ -20,8 +22,19 @@ function formatBytes(size: number): string {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function ShortFormWorkspace() {
+interface ShortFormWorkspaceProps {
+  initialPlatform?: ShortFormPlatform;
+  restoredVideoSelected?: boolean;
+  onDraftChange?: (draft: ShortFormDraft) => void;
+}
+
+export function ShortFormWorkspace({
+  initialPlatform = "tiktok",
+  restoredVideoSelected = false,
+  onDraftChange,
+}: ShortFormWorkspaceProps = {}) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const skipDraftPublish = useRef(true);
   const {
     platform,
     setPlatform,
@@ -32,10 +45,23 @@ export function ShortFormWorkspace() {
     report,
     selectFile,
     analyze,
-  } = useShortFormPreflight();
+  } = useShortFormPreflight(initialPlatform);
   const { generate: generateSuggestion, dismiss: dismissSuggestion, stateFor } =
     useShortFormSuggestions(report);
   const requestActive = phase === "analyzing";
+  const showReselectNotice = restoredVideoSelected && selection === null;
+
+  useEffect(() => {
+    if (!onDraftChange) return;
+    if (skipDraftPublish.current) {
+      skipDraftPublish.current = false;
+      return;
+    }
+    onDraftChange({
+      platform,
+      hadVideoSelected: selection !== null || showReselectNotice,
+    });
+  }, [platform, selection, showReselectNotice, onDraftChange]);
 
   const handleFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -136,9 +162,14 @@ export function ShortFormWorkspace() {
             </div>
             <p>
               Maximum {Math.round(SHORTFORM_MAX_UPLOAD_BYTES / 1_000_000)} MB. Preflight
-              does not start automatically.
+              does not start automatically. Uploaded videos are not saved in this browser.
             </p>
           </div>
+          {showReselectNotice && (
+            <p className="draft-restore-notice" role="status">
+              Local video must be selected again after refresh.
+            </p>
+          )}
           {selection && (
             <dl className="video-meta" aria-label="Selected video">
               <div>

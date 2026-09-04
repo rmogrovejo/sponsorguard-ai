@@ -305,6 +305,93 @@ dd {
   text-transform: uppercase;
 }
 
+.page-note__privacy {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  max-width: 28rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.page-note__privacy .text-button,
+.draft-restore-notice .text-button,
+.draft-confirm .text-button {
+  min-height: 1.75rem;
+  justify-self: start;
+  font-size: 0.6875rem;
+}
+
+.draft-status {
+  color: var(--color-signal-ink);
+}
+
+.draft-restore-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.55rem 0.85rem;
+  margin: 0.85rem 0 0;
+  padding: 0.55rem 0;
+  border-top: var(--rule);
+  color: var(--color-muted-strong);
+  font-size: 0.8125rem;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 500;
+}
+
+.draft-confirm {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.draft-confirm p {
+  margin: 0;
+  color: var(--color-muted-strong);
+  font-size: 0.75rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  font-weight: 500;
+}
+
+.draft-confirm__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.workspace-fault {
+  min-height: 100vh;
+}
+
+.workspace-fault__inner {
+  display: grid;
+  gap: 0.75rem;
+  padding-block: 4rem 6rem;
+  max-width: 36rem;
+}
+
+.workspace-fault__inner h1 {
+  font-family: var(--font-editorial);
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+
+.workspace-fault__inner p {
+  color: var(--color-muted-strong);
+  max-width: 38ch;
+}
+
+.workspace-fault__inner .secondary-button {
+  justify-self: start;
+  margin-top: 0.5rem;
+}
+
 @media (min-width: 1360px) {
   .product-layout,
   .page-frame {

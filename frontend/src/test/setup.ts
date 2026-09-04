@@ -8,4 +8,9 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  try {
+    window.localStorage.clear();
+  } catch {
+    // Tests that stub localStorage away should not fail teardown.
+  }
 });
