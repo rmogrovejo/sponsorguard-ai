@@ -36,6 +36,12 @@ export function sampleDraft(overrides: Partial<CreatorDraft> = {}): CreatorDraft
       platform: "instagram_reels",
       hadVideoSelected: true,
     },
+    audiencePulse: {
+      youtubeUrl: "",
+      commentsText: "",
+      inputMode: "youtube",
+      manualSource: "other",
+    },
     ...overrides,
   };
 }

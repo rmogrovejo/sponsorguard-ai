@@ -1,9 +1,15 @@
+import type {
+  AudiencePulseInputMode,
+  ManualAudienceSource,
+} from "../../types/audiencePulse";
+import { MANUAL_AUDIENCE_SOURCES } from "../../types/audiencePulse";
 import type { RequirementDraft, RequirementType } from "../../types/compliance";
 import type { ContentModule } from "../shell/productModules";
 import type { ShortFormPlatform } from "../../types/shortform";
 import {
   DRAFT_VERSION,
   MAX_DRAFT_BYTES,
+  MAX_PERSISTED_AUDIENCE_COMMENTS_TEXT,
   MAX_PERSISTED_BRIEF_CHARACTERS,
   MAX_PERSISTED_CAMPAIGN_NAME,
   MAX_PERSISTED_FILENAME,
@@ -12,6 +18,7 @@ import {
   MAX_PERSISTED_REQUIREMENTS,
   MAX_PERSISTED_SOURCE_TEXT,
   MAX_PERSISTED_TRANSCRIPT_CHARACTERS,
+  MAX_PERSISTED_YOUTUBE_URL,
 } from "./draftKeys";
 
 export type DraftParseFailure =
@@ -36,9 +43,16 @@ const PLATFORMS: ReadonlySet<ShortFormPlatform> = new Set([
   "instagram_reels",
 ]);
 
-const MODULES: ReadonlySet<ContentModule> = new Set(["shortform", "sponsored"]);
+const MODULES: ReadonlySet<ContentModule> = new Set(["shortform", "sponsored", "audience"]);
 
-const DRAFT_KEYS = new Set(["version", "savedAt", "activeModule", "sponsoredContent", "shortForm"]);
+const DRAFT_KEYS = new Set([
+  "version",
+  "savedAt",
+  "activeModule",
+  "sponsoredContent",
+  "shortForm",
+  "audiencePulse",
+]);
 const SPONSORED_KEYS = new Set([
   "campaignName",
   "sponsorBrief",
@@ -47,6 +61,12 @@ const SPONSORED_KEYS = new Set([
   "transcriptFileName",
 ]);
 const SHORTFORM_KEYS = new Set(["platform", "hadVideoSelected"]);
+const AUDIENCE_KEYS = new Set(["youtubeUrl", "commentsText", "inputMode", "manualSource"]);
+const AUDIENCE_INPUT_MODES: ReadonlySet<AudiencePulseInputMode> = new Set([
+  "youtube",
+  "manual",
+]);
+const MANUAL_SOURCES: ReadonlySet<ManualAudienceSource> = new Set(MANUAL_AUDIENCE_SOURCES);
 const REQUIREMENT_KEYS = new Set([
   "id",
   "type",
@@ -76,12 +96,43 @@ export interface ShortFormDraft {
   hadVideoSelected: boolean;
 }
 
+export interface AudiencePulseDraft {
+  youtubeUrl: string;
+  commentsText: string;
+  inputMode: AudiencePulseInputMode;
+  manualSource: ManualAudienceSource;
+}
+
 export interface CreatorDraft {
   version: 1;
   savedAt: string;
   activeModule: ContentModule;
   sponsoredContent: SponsoredContentDraft;
   shortForm: ShortFormDraft;
+  audiencePulse: AudiencePulseDraft;
+}
+
+export function emptyAudiencePulse(): AudiencePulseDraft {
+  return {
+    youtubeUrl: "",
+    commentsText: "",
+    inputMode: "youtube",
+    manualSource: "other",
+  };
+}
+
+export function inferAudiencePulseInputMode(draft: {
+  youtubeUrl: string;
+  commentsText: string;
+  inputMode?: AudiencePulseInputMode;
+}): AudiencePulseInputMode {
+  if (draft.inputMode === "youtube" || draft.inputMode === "manual") {
+    return draft.inputMode;
+  }
+  if (draft.commentsText.trim() && !draft.youtubeUrl.trim()) {
+    return "manual";
+  }
+  return "youtube";
 }
 
 export function emptyDraft(defaultPlatform: ShortFormPlatform = "tiktok"): CreatorDraft {
@@ -100,6 +151,7 @@ export function emptyDraft(defaultPlatform: ShortFormPlatform = "tiktok"): Creat
       platform: defaultPlatform,
       hadVideoSelected: false,
     },
+    audiencePulse: emptyAudiencePulse(),
   };
 }
 
@@ -109,6 +161,7 @@ export function canonicalDraftPayload(draft: CreatorDraft): string {
     activeModule: draft.activeModule,
     sponsoredContent: draft.sponsoredContent,
     shortForm: draft.shortForm,
+    audiencePulse: draft.audiencePulse,
   });
 }
 
@@ -126,6 +179,8 @@ export function isMeaningfulDraft(
   }
   if (draft.shortForm.platform !== defaultPlatform) return true;
   if (draft.shortForm.hadVideoSelected) return true;
+  if (draft.audiencePulse.youtubeUrl.trim()) return true;
+  if (draft.audiencePulse.commentsText.trim()) return true;
   return false;
 }
 
@@ -148,6 +203,10 @@ export function draftFitsPersistence(draft: CreatorDraft): boolean {
     if ((requirement.provenance?.sourceText.length ?? 0) > MAX_PERSISTED_SOURCE_TEXT) {
       return false;
     }
+  }
+  if (draft.audiencePulse.youtubeUrl.length > MAX_PERSISTED_YOUTUBE_URL) return false;
+  if (draft.audiencePulse.commentsText.length > MAX_PERSISTED_AUDIENCE_COMMENTS_TEXT) {
+    return false;
   }
   return measureDraftBytes(draft) <= MAX_DRAFT_BYTES;
 }
@@ -176,12 +235,19 @@ export function validateCreatorDraft(value: unknown): CreatorDraft | DraftParseF
   if (sponsored === null) return "invalid_schema";
   const shortForm = validateShortForm(value.shortForm);
   if (shortForm === null) return "invalid_schema";
+  // Backward compatible: drafts saved before Audience Pulse omit this slice.
+  const audiencePulse =
+    value.audiencePulse === undefined
+      ? emptyAudiencePulse()
+      : validateAudiencePulse(value.audiencePulse);
+  if (audiencePulse === null) return "invalid_schema";
   const draft: CreatorDraft = {
     version: 1,
     savedAt: value.savedAt,
     activeModule: value.activeModule as ContentModule,
     sponsoredContent: sponsored,
     shortForm,
+    audiencePulse,
   };
   if (!draftFitsPersistence(draft)) return "oversized";
   return draft;
@@ -222,6 +288,36 @@ function validateShortForm(value: unknown): ShortFormDraft | null {
   return {
     platform: value.platform as ShortFormPlatform,
     hadVideoSelected: value.hadVideoSelected,
+  };
+}
+
+function validateAudiencePulse(value: unknown): AudiencePulseDraft | null {
+  if (!isPlainObject(value) || hasUnexpectedKeys(value, AUDIENCE_KEYS)) return null;
+  if (typeof value.youtubeUrl !== "string") return null;
+  if (typeof value.commentsText !== "string") return null;
+  if (
+    value.inputMode !== undefined &&
+    (typeof value.inputMode !== "string" ||
+      !AUDIENCE_INPUT_MODES.has(value.inputMode as AudiencePulseInputMode))
+  ) {
+    return null;
+  }
+  if (
+    value.manualSource !== undefined &&
+    (typeof value.manualSource !== "string" ||
+      !MANUAL_SOURCES.has(value.manualSource as ManualAudienceSource))
+  ) {
+    return null;
+  }
+  return {
+    youtubeUrl: value.youtubeUrl,
+    commentsText: value.commentsText,
+    inputMode: inferAudiencePulseInputMode({
+      youtubeUrl: value.youtubeUrl,
+      commentsText: value.commentsText,
+      inputMode: value.inputMode as AudiencePulseInputMode | undefined,
+    }),
+    manualSource: (value.manualSource as ManualAudienceSource | undefined) ?? "other",
   };
 }
 

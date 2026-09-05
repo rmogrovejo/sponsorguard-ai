@@ -55,11 +55,18 @@ describe("CreatorPreflight shell", () => {
     ).toBeNull();
   });
 
-  it("keeps Reviews as a placeholder and opens Settings in the shell", async () => {
+  it("opens Audience Pulse and Settings from the shell", async () => {
     const user = userEvent.setup();
     render(<App />);
-    expect(screen.getByText("Reviews")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /reviews/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /audience pulse/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /audience pulse/i }));
+    expect(
+      screen.getByRole("heading", {
+        name: "Understand what your audience is actually telling you.",
+      }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Analyze audience" })).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: /settings/i }));
     expect(screen.getByRole("heading", { name: "Workspace appearance and defaults." })).toBeVisible();

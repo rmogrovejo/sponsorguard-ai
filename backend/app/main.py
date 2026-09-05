@@ -4,10 +4,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.errors import register_exception_handlers
 from app.api.health import router as health_router
 from app.api.middleware import RequestBodyLimitMiddleware, RequestContextMiddleware
+from app.api.rate_limit import RateLimitMiddleware
 from app.api.v1.router import router as v1_router
 from app.core.config import Settings
 from app.core.logging import configure_logging
 from app.integrations.llm.base import (
+    AudiencePulseAnalyzer,
     FixGenerator,
     LLMRequirementExtractor,
     SemanticVerifier,
@@ -15,6 +17,7 @@ from app.integrations.llm.base import (
     ShortFormSuggestionGenerator,
 )
 from app.integrations.llm.factory import (
+    create_audience_pulse_analyzer,
     create_fix_generator,
     create_requirement_extractor,
     create_semantic_verifier,
@@ -30,13 +33,14 @@ def create_app(
     fix_generator: FixGenerator | None = None,
     shortform_analyzer: ShortFormSemanticAnalyzer | None = None,
     shortform_suggestion_generator: ShortFormSuggestionGenerator | None = None,
+    audience_pulse_analyzer: AudiencePulseAnalyzer | None = None,
 ) -> FastAPI:
     resolved_settings = settings or Settings.from_environment()
     configure_logging()
 
     application = FastAPI(
         title="CreatorPreflight API",
-        description="API for CreatorPreflight short-form QA and SponsorGuard sponsorship compliance.",
+        description="API for CreatorPreflight short-form QA, SponsorGuard, and Audience Pulse.",
         version="0.1.0",
     )
     application.state.requirement_extractor = (
@@ -54,6 +58,9 @@ def create_app(
     application.state.shortform_suggestion_generator = (
         shortform_suggestion_generator
         or create_shortform_suggestion_generator(resolved_settings)
+    )
+    application.state.audience_pulse_analyzer = (
+        audience_pulse_analyzer or create_audience_pulse_analyzer(resolved_settings)
     )
     application.state.settings = resolved_settings
     register_exception_handlers(application)
@@ -73,6 +80,7 @@ def create_app(
         allow_headers=["Content-Type", "X-Request-ID"],
         expose_headers=["X-Request-ID"],
     )
+    application.add_middleware(RateLimitMiddleware, settings=resolved_settings)
     application.add_middleware(RequestContextMiddleware)
     return application
 

@@ -102,6 +102,36 @@ describe("draft schema validation", () => {
     ).toBe(true);
   });
 
+  it("accepts an old Audience Pulse draft without source metadata", () => {
+    const parsed = validateCreatorDraft({
+      ...sampleDraft(),
+      audiencePulse: {
+        youtubeUrl: "",
+        commentsText: "Does this work on Windows 11?",
+      },
+    });
+    expect(parsed).not.toEqual(expect.any(String));
+    if (typeof parsed !== "string") {
+      expect(parsed.audiencePulse.inputMode).toBe("manual");
+      expect(parsed.audiencePulse.manualSource).toBe("other");
+      expect(parsed.audiencePulse.commentsText).toBe("Does this work on Windows 11?");
+    }
+  });
+
+  it("rejects an unknown Audience Pulse manual source", () => {
+    expect(
+      validateCreatorDraft({
+        ...sampleDraft(),
+        audiencePulse: {
+          youtubeUrl: "",
+          commentsText: "hello",
+          inputMode: "manual",
+          manualSource: "facebook",
+        },
+      }),
+    ).toBe("invalid_schema");
+  });
+
   it("does not treat the configured default platform as meaningful by itself", () => {
     expect(
       isMeaningfulDraft(

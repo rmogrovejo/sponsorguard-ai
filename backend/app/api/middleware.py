@@ -45,6 +45,20 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class BodyTooLarge(Exception):
+    def __init__(
+        self,
+        *,
+        limit: int,
+        code: APIErrorCode,
+        message: str,
+    ) -> None:
+        super().__init__(message)
+        self.limit = limit
+        self.code = code
+        self.message = message
+
+
 class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
@@ -64,13 +78,13 @@ class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: RequestResponseEndpoint,
     ) -> Response:
+        limit, code, message = self._limit_for(request.url.path)
         content_length = request.headers.get("content-length")
         if content_length is not None:
             try:
                 body_size = int(content_length)
             except ValueError:
                 body_size = 0
-            limit, code, message = self._limit_for(request.url.path)
             if body_size > limit:
                 return build_error_response(
                     code=code,
@@ -78,7 +92,39 @@ class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
                     status_code=413,
                     details={"max_body_bytes": limit},
                 )
-        return await call_next(request)
+        elif request.method in {"POST", "PUT", "PATCH"}:
+            self.install_streaming_limit(request, limit=limit, code=code, message=message)
+        try:
+            return await call_next(request)
+        except BodyTooLarge as error:
+            return build_error_response(
+                code=error.code,
+                message=error.message,
+                status_code=413,
+                details={"max_body_bytes": error.limit},
+            )
+
+    @staticmethod
+    def install_streaming_limit(
+        request: Request,
+        *,
+        limit: int,
+        code: APIErrorCode,
+        message: str,
+    ) -> None:
+        received = 0
+        original_receive = request.receive
+
+        async def receive_limited() -> dict[str, object]:
+            nonlocal received
+            incoming = await original_receive()
+            if incoming.get("type") == "http.request":
+                received += len(incoming.get("body", b"") or b"")
+                if received > limit:
+                    raise BodyTooLarge(limit=limit, code=code, message=message)
+            return incoming
+
+        request._receive = receive_limited  # type: ignore[method-assign]
 
     def _limit_for(self, path: str) -> tuple[int, APIErrorCode, str]:
         if path.startswith("/api/v1/shortform/"):

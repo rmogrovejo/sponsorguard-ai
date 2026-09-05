@@ -1,7 +1,14 @@
 import type { Locale } from "./locale";
 import { messages, translate, type MessageKey } from "./translations";
 
-export type ErrorDomain = "generic" | "shortform" | "fix" | "suggestion" | "brief" | "compliance";
+export type ErrorDomain =
+  | "generic"
+  | "shortform"
+  | "fix"
+  | "suggestion"
+  | "brief"
+  | "compliance"
+  | "audience";
 
 export function localizeRequestError(
   locale: Locale,

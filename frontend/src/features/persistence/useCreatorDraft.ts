@@ -9,6 +9,7 @@ import {
   type CreatorDraft,
   type ShortFormDraft,
   type SponsoredContentDraft,
+  type AudiencePulseDraft,
 } from "./draftSchema";
 import {
   clearDraft,
@@ -124,6 +125,13 @@ export function useCreatorDraft(options: UseCreatorDraftOptions = {}) {
     [schedule],
   );
 
+  const updateAudiencePulse = useCallback(
+    (audiencePulse: AudiencePulseDraft) => {
+      schedule({ ...draftRef.current, audiencePulse });
+    },
+    [schedule],
+  );
+
   const updateActiveModule = useCallback(
     (activeModule: CreatorDraft["activeModule"]) => {
       schedule({ ...draftRef.current, activeModule });
@@ -163,6 +171,7 @@ export function useCreatorDraft(options: UseCreatorDraftOptions = {}) {
     hasMeaningfulData: meaningful,
     updateSponsored,
     updateShortForm,
+    updateAudiencePulse,
     updateActiveModule,
     startNewDraft,
     dismissInvalidNotice,

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="CreatorPreflight">
+  <rect width="32" height="32" fill="#161616"/>
+  <rect x="0" y="0" width="2.5" height="32" fill="#C65A32"/>
+  <!-- C -->
+  <path fill="#F4F1EA" d="M15.5 7.5H7.5v17h8v-3.5h-4.5v-10h4.5z"/>
+  <!-- P (outer + counter) -->
+  <path
+    fill="#F4F1EA"
+    fill-rule="evenodd"
+    d="M18 7.5h9.5v10H21.5V24.5H18zm3.5 3.5h2.5v3h-2.5z"
+  />
+</svg>

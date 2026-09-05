@@ -18,6 +18,12 @@ from app.integrations.llm.exceptions import (
 from app.parsers.exceptions import TranscriptParseError, TranscriptTooLargeError
 from app.parsers.srt import MAX_SRT_CHARACTERS
 from app.schemas.errors import APIError, APIErrorCode, ErrorResponse
+from app.services.audience_pulse_errors import (
+    AudiencePulseInputError,
+    AudiencePulseInputErrorCode,
+    YouTubeClientError,
+    YouTubeErrorCode,
+)
 from app.services.brief_extraction import MAX_BRIEF_CHARACTERS
 from app.services.compliance_engine import ComplianceInputError
 from app.services.fix_generation import (
@@ -42,6 +48,8 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(FixGenerationInputError, fix_input_handler)
     app.add_exception_handler(SuggestionInputError, suggestion_input_handler)
     app.add_exception_handler(MediaInspectionError, media_inspection_handler)
+    app.add_exception_handler(AudiencePulseInputError, audience_pulse_input_handler)
+    app.add_exception_handler(YouTubeClientError, youtube_client_error_handler)
     app.add_exception_handler(LLMProviderError, llm_provider_error_handler)
     app.add_exception_handler(Exception, internal_error_handler)
 
@@ -206,6 +214,87 @@ async def media_inspection_handler(
     )
 
 
+async def audience_pulse_input_handler(
+    request: Request,
+    error: Exception,
+) -> JSONResponse:
+    assert isinstance(error, AudiencePulseInputError)
+    if error.code is AudiencePulseInputErrorCode.NO_COMMENTS:
+        return build_error_response(
+            code=APIErrorCode.AUDIENCE_PULSE_NO_COMMENTS,
+            message="No comments were available to analyze.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            details={"reason_code": error.code.value},
+        )
+    return build_error_response(
+        code=APIErrorCode.AUDIENCE_PULSE_INPUT_INVALID,
+        message="Provide exactly one of a YouTube URL or pasted comments.",
+        status_code=status.HTTP_400_BAD_REQUEST,
+        details={"reason_code": error.code.value},
+    )
+
+
+async def youtube_client_error_handler(
+    request: Request,
+    error: Exception,
+) -> JSONResponse:
+    assert isinstance(error, YouTubeClientError)
+    mapping = {
+        YouTubeErrorCode.NOT_CONFIGURED: (
+            APIErrorCode.YOUTUBE_NOT_CONFIGURED,
+            "YouTube comment retrieval is not configured on this server.",
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+        ),
+        YouTubeErrorCode.INVALID_URL: (
+            APIErrorCode.YOUTUBE_INVALID_URL,
+            "Enter a valid YouTube or YouTube Shorts URL.",
+            status.HTTP_400_BAD_REQUEST,
+        ),
+        YouTubeErrorCode.VIDEO_NOT_FOUND: (
+            APIErrorCode.YOUTUBE_VIDEO_NOT_FOUND,
+            "That YouTube video was not found or is not public.",
+            status.HTTP_404_NOT_FOUND,
+        ),
+        YouTubeErrorCode.COMMENTS_DISABLED: (
+            APIErrorCode.YOUTUBE_COMMENTS_DISABLED,
+            "Comments are disabled or unavailable for this video.",
+            status.HTTP_400_BAD_REQUEST,
+        ),
+        YouTubeErrorCode.QUOTA_EXCEEDED: (
+            APIErrorCode.YOUTUBE_QUOTA_EXCEEDED,
+            "YouTube API quota was exceeded. Try again later or paste comments.",
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        ),
+        YouTubeErrorCode.AUTHENTICATION: (
+            APIErrorCode.YOUTUBE_NOT_CONFIGURED,
+            "YouTube comment retrieval is not available because authentication failed.",
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+        ),
+        YouTubeErrorCode.UNAVAILABLE: (
+            APIErrorCode.YOUTUBE_UNAVAILABLE,
+            "YouTube is temporarily unavailable.",
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+        ),
+    }
+    code, message, status_code = mapping[error.code]
+    logger.warning(
+        "Controlled YouTube client failure",
+        extra={
+            "event": "youtube_client_failed",
+            "request_id": getattr(request.state, "request_id", None),
+            "method": request.method,
+            "path": request.url.path,
+            "error_code": error.code.value,
+        },
+    )
+    return build_error_response(
+        code=code,
+        message=message,
+        status_code=status_code,
+        details={"reason_code": error.code.value},
+    )
+
+
 async def llm_provider_error_handler(
     request: Request,
     error: Exception,
@@ -213,7 +302,12 @@ async def llm_provider_error_handler(
     assert isinstance(error, LLMProviderError)
     is_fix_request = request.url.path.startswith("/api/v1/fixes/")
     is_suggestion_request = "/shortform/suggestions/" in request.url.path
-    if is_suggestion_request:
+    is_audience_request = "/audience-pulse/" in request.url.path
+    if is_audience_request:
+        operation = "audience"
+        event = "audience_pulse_failed"
+        log_message = "Controlled Audience Pulse failure"
+    elif is_suggestion_request:
         operation = "suggestion"
         event = "shortform_suggestion_failed"
         log_message = "Controlled short-form suggestion failure"
@@ -251,16 +345,19 @@ async def internal_error_handler(
     request: Request,
     error: Exception,
 ) -> JSONResponse:
-    logger.error(
-        "Unexpected API failure",
-        extra={
+    settings = getattr(request.app.state, "settings", None)
+    log_kwargs: dict[str, object] = {
+        "extra": {
             "event": "unexpected_api_error",
             "request_id": getattr(request.state, "request_id", None),
             "method": request.method,
             "path": request.url.path,
             "error_type": type(error).__name__,
-        },
-    )
+        }
+    }
+    if settings is None or not getattr(settings, "is_production", False):
+        log_kwargs["exc_info"] = error
+    logger.error("Unexpected API failure", **log_kwargs)
     response = build_error_response(
         code=APIErrorCode.INTERNAL_SERVER_ERROR,
         message="An unexpected internal error occurred.",
@@ -320,6 +417,8 @@ def _llm_error_response_policy(
         label = "Fix generation"
     elif operation == "suggestion":
         label = "Suggestion generation"
+    elif operation == "audience":
+        label = "Audience Pulse analysis"
     else:
         label = "Requirement extraction"
     if isinstance(error, LLMProviderTimeoutError):

@@ -113,6 +113,10 @@ dd {
   color: var(--color-muted);
 }
 
+.product-rail > .product-rail__label:not(:first-child) {
+  margin-top: 1.5rem;
+}
+
 .product-nav {
   display: flex;
   flex-direction: column;
@@ -154,8 +158,10 @@ dd {
 
 .product-nav button span,
 .product-nav__placeholder span {
+  min-width: 0;
   color: var(--color-muted-strong);
   font-size: 0.75rem;
+  overflow-wrap: anywhere;
 }
 
 .product-nav__placeholder {
@@ -220,6 +226,11 @@ dd {
   color: var(--color-ink);
 }
 
+.masthead .wordmark {
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
 .wordmark__mark {
   width: 2rem;
   height: 2rem;
@@ -255,6 +266,12 @@ dd {
   font-weight: 700;
   letter-spacing: -0.015em;
   overflow-wrap: break-word;
+}
+
+.masthead .wordmark__name {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 
 .wordmark__name span {
@@ -452,7 +469,7 @@ dd {
   }
 }
 
-@media (max-width: 430px) {
+@media (max-width: 480px) {
   .product-nav {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -470,7 +487,22 @@ dd {
 @media (max-width: 680px) {
   .masthead__inner {
     min-height: 3.75rem;
-    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 0.75rem;
+    row-gap: 0.4rem;
+  }
+
+  .masthead .wordmark {
+    flex: 1 1 auto;
+  }
+
+  .masthead__meta {
+    flex: 1 1 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    column-gap: 0.55rem;
+    row-gap: 0.25rem;
   }
 
   .masthead__meta > :not(.mono-label) {
@@ -481,7 +513,12 @@ dd {
     display: none;
   }
 
-  .wordmark__name {
+  .masthead__meta .draft-status::before {
+    content: "·";
+    margin-right: 0.45rem;
+  }
+
+  .masthead .wordmark__name {
     font-size: 1rem;
   }
 

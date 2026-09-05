@@ -5,9 +5,9 @@ import type {
   ExtractedRequirement,
 } from "../types/briefs";
 import type { RequirementType } from "../types/compliance";
+import { resolveApiBaseUrl } from "./apiBaseUrl";
 
-const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
-const DEFAULT_TIMEOUT_MS = 20_000;
+const DEFAULT_TIMEOUT_MS = 25_000;
 
 export type BriefExtractionApiErrorKind =
   | "backend"
@@ -218,11 +218,7 @@ export async function extractBriefRequirements(
   request: ExtractBriefRequest,
   options: ExtractOptions = {},
 ): Promise<ExtractBriefResponse> {
-  const configuredUrl = import.meta.env.VITE_SPONSORGUARD_API_URL;
-  const baseUrl = (options.baseUrl ?? configuredUrl ?? DEFAULT_API_BASE_URL).replace(
-    /\/+$/,
-    "",
-  );
+  const baseUrl = resolveApiBaseUrl(options.baseUrl);
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(
     () => controller.abort(),

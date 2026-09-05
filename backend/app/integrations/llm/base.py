@@ -1,6 +1,7 @@
 from collections.abc import Sequence
-from typing import Protocol
+from typing import Literal, Protocol
 
+from app.domain.audience_pulse import AudienceComment, AudiencePulseProviderOutput
 from app.domain.extraction import BriefExtractionOutput
 from app.domain.fixes import FixProviderOutput
 from app.domain.requirements import Requirement
@@ -89,3 +90,20 @@ class ShortFormSuggestionGenerator(Protocol):
         self,
         context: ShortFormSuggestionContext,
     ) -> ShortFormSuggestionProviderOutput: ...
+
+
+class AudiencePulseAnalyzer(Protocol):
+    """Narrow provider boundary for Audience Pulse classification and insights."""
+
+    @property
+    def provider_name(self) -> str: ...
+
+    @property
+    def model_name(self) -> str: ...
+
+    async def analyze_audience(
+        self,
+        comments: Sequence[AudienceComment],
+        *,
+        analysis_language: Literal["en", "es"] = "en",
+    ) -> AudiencePulseProviderOutput: ...

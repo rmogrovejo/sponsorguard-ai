@@ -4,8 +4,8 @@ import type {
   GenerateFixRequest,
   GeneratedFix,
 } from "../types/compliance";
+import { resolveApiBaseUrl } from "./apiBaseUrl";
 
-const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
 const DEFAULT_FIX_TIMEOUT_MS = 65_000;
 
 export class FixGenerationApiError extends Error {
@@ -140,8 +140,7 @@ export async function generateFix(
   request: GenerateFixRequest,
   options: GenerateOptions = {},
 ): Promise<GeneratedFix> {
-  const configuredUrl = import.meta.env.VITE_SPONSORGUARD_API_URL;
-  const baseUrl = (options.baseUrl ?? configuredUrl ?? DEFAULT_API_BASE_URL).replace(/\/+$/, "");
+  const baseUrl = resolveApiBaseUrl(options.baseUrl);
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(
     () => controller.abort(),

@@ -6,8 +6,9 @@ import type {
   ComplianceSummary,
 } from "../types/compliance";
 
-const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
-const DEFAULT_TIMEOUT_MS = 12_000;
+import { resolveApiBaseUrl } from "./apiBaseUrl";
+
+const DEFAULT_TIMEOUT_MS = 75_000;
 
 export type ComplianceApiErrorKind =
   | "backend"
@@ -221,11 +222,7 @@ export async function analyzeCompliance(
   request: AnalyzeComplianceRequest,
   options: AnalyzeOptions = {},
 ): Promise<AnalyzeComplianceResponse> {
-  const configuredUrl = import.meta.env.VITE_SPONSORGUARD_API_URL;
-  const baseUrl = (options.baseUrl ?? configuredUrl ?? DEFAULT_API_BASE_URL).replace(
-    /\/+$/,
-    "",
-  );
+  const baseUrl = resolveApiBaseUrl(options.baseUrl);
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const fetchImpl = options.fetchImpl ?? fetch;
   const controller = new AbortController();

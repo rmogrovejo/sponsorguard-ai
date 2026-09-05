@@ -8,4 +8,4 @@ router = APIRouter(tags=["health"])
 
 @router.get("/health", response_model=HealthResponse)
 def get_health() -> HealthResponse:
-    return HealthResponse(status="ok", service="SponsorGuard API")
+    return HealthResponse(status="ok", service="CreatorPreflight API")

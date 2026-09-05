@@ -15,7 +15,7 @@ export function ProductNav({
   const { t } = useTranslation();
   return (
     <nav className="product-rail" aria-label={productName}>
-      <p className="product-rail__label mono-label">{t("nav.preflight")}</p>
+      <p className="product-rail__label mono-label">{t("nav.prePublish")}</p>
       <div className="product-nav">
         <button
           type="button"
@@ -33,10 +33,20 @@ export function ProductNav({
           <strong>{t("nav.sponsored")}</strong>
           <span>{t("nav.sponsoredDetail")}</span>
         </button>
-        <div className="product-nav__placeholder">
-          <strong>{t("nav.reviews")}</strong>
-          <span>{t("nav.reviewsDetail")}</span>
-        </div>
+      </div>
+      <p className="product-rail__label mono-label">{t("nav.postPublish")}</p>
+      <div className="product-nav">
+        <button
+          type="button"
+          aria-current={module === "audience" ? "page" : undefined}
+          onClick={() => onChange("audience")}
+        >
+          <strong>{t("nav.audience")}</strong>
+          <span>{t("nav.audienceDetail")}</span>
+        </button>
+      </div>
+      <p className="product-rail__label mono-label">{t("nav.workspace")}</p>
+      <div className="product-nav">
         <button
           type="button"
           aria-current={module === "settings" ? "page" : undefined}

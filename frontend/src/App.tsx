@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { AudiencePulseWorkspace } from "./features/audiencepulse/AudiencePulseWorkspace";
 import { ClearDraftControl } from "./features/persistence/ClearDraftControl";
 import { DraftStatus } from "./features/persistence/DraftStatus";
 import { useCreatorDraft } from "./features/persistence/useCreatorDraft";
@@ -160,6 +161,16 @@ function AppWorkspace({
               initialTranscriptContent={draft.initialDraft.sponsoredContent.transcriptContent}
               initialTranscriptFileName={draft.initialDraft.sponsoredContent.transcriptFileName}
               onDraftChange={draft.updateSponsored}
+            />
+          </div>
+          <div hidden={module !== "audience"}>
+            <AudiencePulseWorkspace
+              key={`audience-${draft.epoch}`}
+              initialYoutubeUrl={draft.initialDraft.audiencePulse.youtubeUrl}
+              initialCommentsText={draft.initialDraft.audiencePulse.commentsText}
+              initialInputMode={draft.initialDraft.audiencePulse.inputMode}
+              initialManualSource={draft.initialDraft.audiencePulse.manualSource}
+              onDraftChange={draft.updateAudiencePulse}
             />
           </div>
           {module === "settings" && (

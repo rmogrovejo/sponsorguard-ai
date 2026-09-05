@@ -1,3 +1,5 @@
+import asyncio
+import json
 import re
 
 import pytest
@@ -162,3 +164,85 @@ def test_settings_load_allowed_origins_from_environment(
 def test_settings_reject_invalid_cors_origins(origin: str) -> None:
     with pytest.raises(ValueError, match="invalid CORS origin"):
         Settings(allowed_origins=(origin,))
+
+
+def test_configured_deployment_origin_is_allowed() -> None:
+    app = create_app(
+        Settings(allowed_origins=("https://creatorpreflight.example",))
+    )
+    client = TestClient(app, raise_server_exceptions=False)
+    response = client.post(
+        ENDPOINT,
+        json=valid_body(),
+        headers={"Origin": "https://creatorpreflight.example"},
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == (
+        "https://creatorpreflight.example"
+    )
+
+
+def test_production_requires_explicit_allowed_origins(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CREATORPREFLIGHT_ENV", "production")
+    monkeypatch.delenv("SPONSORGUARD_ALLOWED_ORIGINS", raising=False)
+    with pytest.raises(ValueError, match="SPONSORGUARD_ALLOWED_ORIGINS"):
+        Settings.from_environment()
+
+
+def test_production_accepts_configured_https_origin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CREATORPREFLIGHT_ENV", "production")
+    monkeypatch.setenv(
+        "SPONSORGUARD_ALLOWED_ORIGINS",
+        "https://creatorpreflight.example,http://localhost:5173",
+    )
+    settings = Settings.from_environment()
+    assert settings.is_production
+    assert settings.allowed_origins == (
+        "https://creatorpreflight.example",
+        "http://localhost:5173",
+    )
+
+
+def test_missing_content_length_still_enforces_body_limit() -> None:
+    from starlette.requests import Request
+
+    from app.api.middleware import BodyTooLarge, RequestBodyLimitMiddleware
+    from app.schemas.errors import APIErrorCode
+
+    payload = json.dumps(valid_body("x" * 400)).encode("utf-8")
+
+    async def receive() -> dict[str, object]:
+        return {"type": "http.request", "body": payload, "more_body": False}
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": ENDPOINT,
+        "raw_path": ENDPOINT.encode(),
+        "query_string": b"",
+        "headers": [(b"content-type", b"application/json")],
+        "client": ("testclient", 50000),
+        "server": ("test", 80),
+    }
+    request = Request(scope, receive)
+
+    async def expect_limit() -> None:
+        RequestBodyLimitMiddleware.install_streaming_limit(
+            request,
+            limit=64,
+            code=APIErrorCode.TRANSCRIPT_TOO_LARGE,
+            message="The request body exceeds the allowed size.",
+        )
+        with pytest.raises(BodyTooLarge) as captured:
+            await request.body()
+        assert captured.value.limit == 64
+        assert captured.value.code is APIErrorCode.TRANSCRIPT_TOO_LARGE
+
+    asyncio.run(expect_limit())

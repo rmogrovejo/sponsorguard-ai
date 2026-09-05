@@ -1,0 +1,36 @@
+# Primary backend deployment path: Docker on Render.
+# Pair with a static Vite host (Vercel) that sets VITE_SPONSORGUARD_API_URL
+# to this service's HTTPS origin at build time.
+
+services:
+  - type: web
+    name: creatorpreflight-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    envVars:
+      - key: CREATORPREFLIGHT_ENV
+        value: production
+      - key: SPONSORGUARD_ALLOWED_ORIGINS
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: SPONSORGUARD_LLM_PROVIDER
+        value: gemini
+      - key: SPONSORGUARD_LLM_MODEL
+        value: gemini-3.7-flash
+      - key: SPONSORGUARD_LLM_TIMEOUT_SECONDS
+        value: "20"
+      - key: SPONSORGUARD_SEMANTIC_TIMEOUT_SECONDS
+        value: "60"
+      - key: SPONSORGUARD_MAX_REQUEST_BODY_BYTES
+        value: "2100000"
+      - key: SPONSORGUARD_SHORTFORM_MAX_UPLOAD_BYTES
+        value: "25000000"
+      - key: SPONSORGUARD_RATE_LIMIT_EXPENSIVE_PER_MINUTE
+        value: "8"
+      - key: SPONSORGUARD_RATE_LIMIT_STANDARD_PER_MINUTE
+        value: "40"

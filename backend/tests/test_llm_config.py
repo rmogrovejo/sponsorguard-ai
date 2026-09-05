@@ -50,6 +50,16 @@ def test_gemini_is_the_documented_default_provider_and_model(
     assert settings.resolved_llm_model == "gemini-3.7-flash"
 
 
+def test_rate_limit_environment_overrides_are_independent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SPONSORGUARD_RATE_LIMIT_EXPENSIVE_PER_MINUTE", "3")
+    monkeypatch.setenv("SPONSORGUARD_RATE_LIMIT_STANDARD_PER_MINUTE", "25")
+    settings = Settings.from_environment()
+    assert settings.rate_limit_expensive_per_minute == 3
+    assert settings.rate_limit_standard_per_minute == 25
+
+
 def test_semantic_timeout_has_an_independent_sixty_second_default() -> None:
     settings = Settings()
 

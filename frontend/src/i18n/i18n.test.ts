@@ -67,5 +67,7 @@ describe("translations", () => {
     expect(localizeRequestError("en", "LLM_PROVIDER_UNAVAILABLE", "suggestion")).toMatch(
       /temporarily unavailable/i,
     );
+    expect(localizeRequestError("es", "RATE_LIMITED", "fix")).toMatch(/Demasiadas/);
+    expect(localizeRequestError("en", "RATE_LIMITED", "brief")).toMatch(/Too many/);
   });
 });

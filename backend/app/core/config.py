@@ -8,6 +8,7 @@ DEFAULT_ALLOWED_ORIGINS = (
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 )
+DEFAULT_APP_ENV = "development"
 DEFAULT_MAX_REQUEST_BODY_BYTES = 2_100_000
 DEFAULT_SHORTFORM_MAX_UPLOAD_BYTES = 25_000_000
 DEFAULT_LLM_PROVIDER = "gemini"
@@ -15,6 +16,11 @@ DEFAULT_GEMINI_MODEL = "gemini-3.7-flash"
 DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
 DEFAULT_LLM_TIMEOUT_SECONDS = 20.0
 DEFAULT_SEMANTIC_TIMEOUT_SECONDS = 60.0
+DEFAULT_RATE_LIMIT_EXPENSIVE_PER_MINUTE = 8
+DEFAULT_RATE_LIMIT_STANDARD_PER_MINUTE = 40
+DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 60.0
+DEFAULT_RATE_LIMIT_MAX_KEYS = 4_096
+DEFAULT_YOUTUBE_TIMEOUT_SECONDS = 20.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,16 +32,36 @@ class Settings:
     llm_model: str | None = None
     gemini_api_key: str | None = field(default=None, repr=False)
     openai_api_key: str | None = field(default=None, repr=False)
+    youtube_api_key: str | None = field(default=None, repr=False)
     llm_timeout_seconds: float = DEFAULT_LLM_TIMEOUT_SECONDS
     semantic_timeout_seconds: float = DEFAULT_SEMANTIC_TIMEOUT_SECONDS
+    youtube_timeout_seconds: float = DEFAULT_YOUTUBE_TIMEOUT_SECONDS
+    app_env: str = DEFAULT_APP_ENV
+    rate_limit_expensive_per_minute: int = DEFAULT_RATE_LIMIT_EXPENSIVE_PER_MINUTE
+    rate_limit_standard_per_minute: int = DEFAULT_RATE_LIMIT_STANDARD_PER_MINUTE
+    rate_limit_window_seconds: float = DEFAULT_RATE_LIMIT_WINDOW_SECONDS
+    rate_limit_max_keys: int = DEFAULT_RATE_LIMIT_MAX_KEYS
 
     def __post_init__(self) -> None:
+        if self.app_env not in {"development", "production"}:
+            raise ValueError("app_env must be 'development' or 'production'")
         if self.max_request_body_bytes < 1:
             raise ValueError("max_request_body_bytes must be positive")
         if self.shortform_max_upload_bytes < 1:
             raise ValueError("shortform_max_upload_bytes must be positive")
         if not self.allowed_origins:
             raise ValueError("at least one allowed origin is required")
+        if self.rate_limit_expensive_per_minute < 1:
+            raise ValueError("rate_limit_expensive_per_minute must be positive")
+        if self.rate_limit_standard_per_minute < 1:
+            raise ValueError("rate_limit_standard_per_minute must be positive")
+        if (
+            not isfinite(self.rate_limit_window_seconds)
+            or self.rate_limit_window_seconds <= 0
+        ):
+            raise ValueError("rate_limit_window_seconds must be a positive finite number")
+        if self.rate_limit_max_keys < 1:
+            raise ValueError("rate_limit_max_keys must be positive")
         if not self.llm_provider.strip():
             raise ValueError("llm_provider cannot be blank")
         if self.llm_model is not None and not self.llm_model.strip():
@@ -44,6 +70,8 @@ class Settings:
             raise ValueError("gemini_api_key cannot be blank")
         if self.openai_api_key is not None and not self.openai_api_key.strip():
             raise ValueError("openai_api_key cannot be blank")
+        if self.youtube_api_key is not None and not self.youtube_api_key.strip():
+            raise ValueError("youtube_api_key cannot be blank")
         if not isfinite(self.llm_timeout_seconds) or self.llm_timeout_seconds <= 0:
             raise ValueError("llm_timeout_seconds must be a positive finite number")
         if (
@@ -51,6 +79,11 @@ class Settings:
             or self.semantic_timeout_seconds <= 0
         ):
             raise ValueError("semantic_timeout_seconds must be a positive finite number")
+        if (
+            not isfinite(self.youtube_timeout_seconds)
+            or self.youtube_timeout_seconds <= 0
+        ):
+            raise ValueError("youtube_timeout_seconds must be a positive finite number")
         for origin in self.allowed_origins:
             _validate_origin(origin)
 
@@ -64,9 +97,19 @@ class Settings:
         }
         return provider_defaults.get(self.llm_provider.strip().lower(), "unconfigured")
 
+    @property
+    def is_production(self) -> bool:
+        return self.app_env == "production"
+
     @classmethod
     def from_environment(cls) -> "Settings":
+        app_env = _environment_name()
         raw_origins = os.getenv("SPONSORGUARD_ALLOWED_ORIGINS")
+        if raw_origins is None and app_env == "production":
+            raise ValueError(
+                "SPONSORGUARD_ALLOWED_ORIGINS must be set when "
+                "CREATORPREFLIGHT_ENV=production"
+            )
         allowed_origins = (
             tuple(item.strip() for item in raw_origins.split(",") if item.strip())
             if raw_origins is not None
@@ -119,6 +162,7 @@ class Settings:
 
         gemini_api_key = _optional_environment_value("GEMINI_API_KEY")
         openai_api_key = _optional_environment_value("OPENAI_API_KEY")
+        youtube_api_key = _optional_environment_value("YOUTUBE_API_KEY")
         configured_model = os.getenv("SPONSORGUARD_LLM_MODEL")
 
         return cls(
@@ -131,9 +175,56 @@ class Settings:
             llm_model=(configured_model.strip() if configured_model is not None else None),
             gemini_api_key=gemini_api_key,
             openai_api_key=openai_api_key,
+            youtube_api_key=youtube_api_key,
             llm_timeout_seconds=llm_timeout_seconds,
             semantic_timeout_seconds=semantic_timeout_seconds,
+            youtube_timeout_seconds=_positive_float_env(
+                "SPONSORGUARD_YOUTUBE_TIMEOUT_SECONDS",
+                DEFAULT_YOUTUBE_TIMEOUT_SECONDS,
+            ),
+            app_env=app_env,
+            rate_limit_expensive_per_minute=_positive_int_env(
+                "SPONSORGUARD_RATE_LIMIT_EXPENSIVE_PER_MINUTE",
+                DEFAULT_RATE_LIMIT_EXPENSIVE_PER_MINUTE,
+            ),
+            rate_limit_standard_per_minute=_positive_int_env(
+                "SPONSORGUARD_RATE_LIMIT_STANDARD_PER_MINUTE",
+                DEFAULT_RATE_LIMIT_STANDARD_PER_MINUTE,
+            ),
+            rate_limit_window_seconds=_positive_float_env(
+                "SPONSORGUARD_RATE_LIMIT_WINDOW_SECONDS",
+                DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
+            ),
+            rate_limit_max_keys=_positive_int_env(
+                "SPONSORGUARD_RATE_LIMIT_MAX_KEYS",
+                DEFAULT_RATE_LIMIT_MAX_KEYS,
+            ),
         )
+
+
+def _environment_name() -> str:
+    raw = os.getenv("CREATORPREFLIGHT_ENV") or os.getenv("APP_ENV") or DEFAULT_APP_ENV
+    return raw.strip().lower()
+
+
+def _positive_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError as error:
+        raise ValueError(f"{name} must be an integer") from error
+
+
+def _positive_float_env(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError as error:
+        raise ValueError(f"{name} must be a number") from error
 
 
 def _optional_environment_value(name: str) -> str | None:
